@@ -84,25 +84,25 @@ int main() {
 <p align="center"><img src="pic/scr_2.png"></p>
 <p align="center">Рис 3. Отладка в Qt Creator.</p>
 
-
+<br>
 <table>
 <tr>
 <tr> <td><b><p align="center">Вопрос</p></b></td><td><b><p align="center">Ответ</p></b></td></tr>
 <tr> <td>Чему равны переменные i и d в 6 строке (тут и далее, нужно написать значения);</td>
 	<td>
-	i=0 (мусорное значение); d=8.44978.. (мусорное значение)<br>
+	i=0 (мусорное значение); d=8.44978.. (мусорное значение)<br><br>
 	<p align="center"><img src="pic/line_6.png"></p>
 	<p align="center">Рис 4. Значение переменных в строке 6.</p>
 	</td></tr>
 <tr> <td>Чему равны переменные i и d в 7 строке;</td>
 	<td>
-	i=5; d=8.44978.. (мусорное значение)<br>
+	i=5; d=8.44978.. (мусорное значение)<br><br>
 	<p align="center"><img src="pic/line_7.png"></p>
 	<p align="center">Рис 5. Значение переменных в строке 7.</p>
 	</td></tr>
 <tr> <td>Чему равны переменные i и d в 8 строке;</td>
 	<td>
-	i=5; d=5<br>
+	i=5; d=5<br><br>
 	<p align="center"><img src="pic/line_8.png"></p>
 	<p align="center">Рис 6. Значение переменных в строке 8.</p>
 	</td></tr>
