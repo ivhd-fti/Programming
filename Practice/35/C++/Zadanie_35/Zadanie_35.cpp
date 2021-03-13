@@ -9,8 +9,8 @@ struct IntArray {
 void create(IntArray* arr, int size) {
     // тут должна была бы быть проверка на то, что массив уже создан. Т.е. создавать новый 
     // массив можно только, если (*arr).data равен nullptr. Но в задании это не требуется.
-    int* array_main = new int[size];
-    (*arr).data = array_main;
+    int* new_array = new int[size];
+    (*arr).data = new_array;
     (*arr).size = size;
 }
 
