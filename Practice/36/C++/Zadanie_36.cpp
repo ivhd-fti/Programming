@@ -67,7 +67,7 @@ public:
 	
 	void set_r(double r_) {
 		this->r = r_;
-		CartesianToPolar();
+		PolarToCartesian();
 	}
 	
 	void set_phi(double phi) {
