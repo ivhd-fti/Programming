@@ -697,8 +697,11 @@ if __name__ == "__main__":
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
+
 ```
-<br><br>
+
+<br>
+<br>
 <h2>Ответ на вопрос про зашифрованное сообщение: Как зовут и что он обещал?</h2>
 
 <p align="center"><img src="image/05.png"></p>
