@@ -21,30 +21,8 @@ S={
 "in_game":      False,
 "game_do_trun": False,
 "playerlist":   [],
-0:[
-    [[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-    [[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-    [[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-    [[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-    [[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-    [[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-    [[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-    [[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-    [[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-    [[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-],
-1:[
-[[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-[[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-[[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-[[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-[[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-[[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-[[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-[[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-[[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-[[0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-], # "pfld": [],         #[[], [] .. ]    "ofld"
+0:[[[0,0] for x in range(10)] for y in range(10)],
+1:[[[0,0] for x in range(10)] for y in range(10)], # "pfld": [],         #[[], [] .. ]    "ofld"
 "fieldobjlinks":[0,0],
 "ok":           False,
 "fail":         "---",
@@ -58,6 +36,7 @@ S={
 "ground_index": 80,
 "res":          [0,0,-1],
 "game_end_result": "---",
+"s_WaitingOpponentJoin":False,
 }
 
 #anim_do=True
@@ -85,12 +64,14 @@ class Packet(enum.IntEnum):     # пакеты от Клиента к Серве
     p_ChatMessage = 18     #18 9-tmp посылка сообщения в чат (общий канал или сопернику)
     s_ObjChange = 19       #19 какие-то изменения какого-то объекта
     s_SendServerData = 20  #20+ srv: ответ сколько игроков и их имена
+
     s_ThisUserLoggedIn=21  #+21 такой пользователь уже законнекчен
     s_AccCreated=22        #+22 Создан новый экаунт
     s_AccInUse = 23		   #+23 экаунт занят
     s_YouAreNotConnected=24#+24 попытка отконнектиться, когда не залогинен
     s_AccountWasDeleted=25 #+25 Экаунт удален БЕЗ подтверждения
     s_AccountNotDeleted=26 #+26 Не могу удалить экаунт: логин или пароль не верные
+
     s_SendField=27		   #+27 Отсылка пустого поля игроку (поля для игрока)
     p_FieldRequest=28	   #+28 Отсылка сгенерированного пустого поля игроку
     s_LoginFirst=29		   #+29 Сначала залогиньтесь для этого действия
@@ -121,9 +102,12 @@ class Packet(enum.IntEnum):     # пакеты от Клиента к Серве
     p_SetGroundPercent = 60,	#+ pCOM: установить % суши на карте.   T4-val4
     s_SetGroundError = 61,		# !!!   REP: посылается, в случае, если IN-Game ИЛИ val<0 or val>100. Иначе в ответ посылается новое поле
     s_SendScore = 62,			#+ отсылает игроку его текущие достижения
-    s_SurrenderFail = 63,		# REP: сдача не возможна. вы не в игре.
-    s_SurrenderWin = 64,		# REP: посылается игроку, одержавшему победу выходом опонента по surrender
-    s_SendOponentField=65,      # Присылается в момент старта игры: расположение суши противника
+    s_SurrenderFail = 63,		#+ REP: сдача не возможна. вы не в игре.
+    s_SurrenderWin = 64,		#+REP: посылается игроку, одержавшему победу выходом опонента по surrender
+    s_SendOponentField=65,      #+Присылается в момент старта игры: расположение суши противника
+    s_WaitingOpponentJoin=66,   #+REP: ожидаем пока найдется противник
+    s_RefreshField_P = 67,		#+ COM: обновление поля игрока
+    s_RefreshField_O = 68,		#+ COM: обновление поля оппонента
 
 class AT(enum.IntEnum): # ActionTypes
     prn = 1     # a_msg_print
@@ -132,10 +116,17 @@ class AT(enum.IntEnum): # ActionTypes
     run = 4     # run sub
     read3 = 5   # читаем 3 int и печатем
     read3i =6   # читаем 3 int и зансим в результат
+    status = 7  # меняем текст статуса
 
+def button_status(screen=1, btn_name="", state=True):
+    if not btn_name or not 0<=screen<=2: return
+    S["screens"][screen].buttons[btn_name]["state"] = "normal" if state else "disabled"
+
+def change_status(before="", msg="", after=""):
+    S["screens"][1].change_status(before=before, msg=msg, after=after)
 def screen_server(**kargs):
     global S, root, client
-    print("kargs:", kargs)
+
     if "new_screen" in kargs:
         print("screen=", kargs["new_screen"])
         S["screens"][ S["current_screen"] ].hide() # hide ald screen
@@ -154,7 +145,8 @@ def screen_server(**kargs):
             S["game_do_trun"]= False
             S["screens"][1].b8["state"] = "disabled"
             S["screens"][1].b8["text"] = "Ready"
-            getnewfield()
+            S["screens"][1].reset_self()
+            S["screens"][1].getnewfield()
         elif S["current_screen"]==2:
             S["screens"][2].refresh()
 
@@ -166,35 +158,39 @@ def screen_server(**kargs):
         print("hello") #
         return
 
-def cell_setter(**kargs):
-    if kargs['field']==1:
-        S["screens"][1].ofld.set_cell()
-    else:
-        S["screens"][1].pfld.set_cell()
+def field_build(**kargs):
+    if kargs['field']==1:   S["screens"][1].ofld.build_self()
+    else:                   S["screens"][1].pfld.build_self()
 
+def cell_setter(**kargs):
+    if kargs['field']==1:   S["screens"][1].ofld.set_cell()
+    else:                   S["screens"][1].pfld.set_cell()
 
 PacketActions={
 Packet.s_SendScore:         [[AT.prn, "Результат игры:"], [AT.read3i] ],
 Packet.s_YouWin:            [[AT.prn, "Поздравляем, Вы выиграли!"], [AT.avc, "in_game", False], [AT.avc, "game_end_result", "win"],
                             [AT.run, screen_server, {'new_screen':2}] ],
-
 Packet.s_YouLose:           [[AT.prn, "Вы проиграли."], [AT.avc, "in_game", False], [AT.avc, "game_end_result", "loss"],
                             [AT.run, screen_server, {'new_screen':2}] ],
-
 Packet.s_SurrenderWin:      [[AT.prn, "Поздравляем, Вы выиграли! Противник сдался."], [AT.avc, "in_game", False],
                             [AT.avc, "game_end_result", "win_sur"], [AT.run, screen_server, {'new_screen':2}] ],
+Packet.s_SurrenderFail:     [[AT.prn, "Сдаться невозможно."]],
+Packet.s_SendCell_O:        [[AT.read3i], [AT.run, cell_setter, {'field':1}] ], #[AT.prn, "Результат хода"],
+Packet.s_SendCell_P:        [[AT.read3i], [AT.run, cell_setter, {'field':0}] ], #[AT.prn, "Выстрел по вам"],
+Packet.s_RefreshField_P:    [[AT.read3i], [AT.run, field_build, {'field':0}]],
+Packet.s_RefreshField_O:    [[AT.read3i], [AT.run, field_build, {'field':1}]],
 
-Packet.s_SendCell_O:        [[AT.prn, "Результат хода"], [AT.read3i], [AT.run, cell_setter, {'field':1}] ],
-Packet.s_SendCell_P:        [[AT.prn, "Выстрел по вам"], [AT.read3i], [AT.run, cell_setter, {'field':0}] ],
 Packet.p_Ok:                [[AT.prn, "Ok"], [AT.avc, "ok", "+++"]],
 Packet.p_Fail:              [[AT.prn, "Fail"], [AT.avc, "fail", True]],
 Packet.s_CantPlaceShipHere: [[AT.prn, "Невозможно установить корабль"], [AT.avc, "fail", "+++"]],
 Packet.s_SendShip:          [[AT.prn, "Корабль прошел проверку"], [AT.read3], [AT.avc, "fail", "---"]],
 Packet.s_FailedToFindGame:  [[AT.prn, "Невозможно найти игру"], [AT.avc, "fail", "+++"], [AT.avc, "in_game", False] ],
-Packet.s_YouAreInGame:      [[AT.prn, "Вы в игре"], [AT.avc, "fail", "---"], [AT.avc, "in_game", True] ],
-Packet.s_YourTurn:          [[AT.prn, "Ваш ход"], [AT.avc, "fail", "---"], [AT.avc, "in_game", True], [AT.avc, "game_do_trun", True] ],
-Packet.s_YouWait:           [[AT.prn, "Ожидайте."], [AT.avc, "fail", "---"], [AT.avc, "in_game", True], [AT.avc, "game_do_trun", False] ],
-
+Packet.s_YouAreInGame:      [[AT.prn, "Вы в игре"], [AT.avc, {"fail":"---", "in_game":True, "ready":True}], [AT.run, change_status, {'msg':"Вы в игре. "}] ],
+Packet.s_WaitingOpponentJoin: [[AT.run, change_status, {'after':" Ищем Вам противника. Ожидайте. "}], [AT.avc, "s_WaitingOpponentJoin", True]],
+Packet.s_YourTurn:          [[AT.prn, "Ваш ход"], [AT.avc, {"fail":"---", "in_game":True, "game_do_trun":True, "s_WaitingOpponentJoin":False}],
+                            [AT.run, change_status, {'msg':"Ваш ход."}] ],
+Packet.s_YouWait:           [[AT.prn, "Ожидайте."], [AT.avc, {"fail":"---", "in_game":True, "game_do_trun":False, "s_WaitingOpponentJoin":False}],
+                            [AT.run, change_status, {'msg':"Ожидайте ход противника."}]],
 Packet.p_AlreadyConnected:  [[AT.prn, "Вы уже залогинены под другим экаунтом. Отконектитесь и попробуйте ещё раз."]],
 Packet.p_ConnectOk:         [[AT.prn, "Поздравляем, Вы залогинились."], [AT.avc, "logged_in", True], [AT.run, screen_server, {'new_screen':1}] ],
 Packet.p_Connect_Fail:      [[AT.prn, "Логин и пароль не верны."]],
@@ -211,11 +207,14 @@ Packet.s_SendOponentField:  [[AT.prn, "New Oponent Field:"],  [AT.ale, 1]],
 Packet.s_LoginFirst:        [[AT.prn, "Для этого необходимо залогиниться."]],
 Packet.s_FieldChangeRefuse: [[AT.prn, "Изменения поля невозможны"], [AT.avc, "fail", True]],
 Packet.s_UnreadyFailNoShips:[[AT.prn, "Не достаточно кораблей для игры"], [AT.avc, "fail", True]],
-Packet.s_YouAreNotInGame:   [[AT.prn, "Вы отменили статус Готовности"], [AT.avc, "fail", True]],
+Packet.s_YouAreNotInGame:   [[AT.prn, "Вы отменили статус Готовности"], [AT.avc, {"fail":"---", "s_WaitingOpponentJoin":False, "in_game":False, "game_do_trun":False, "ready":False}],
+                            [AT.run, button_status, {'screen':1, 'btn_name':'b8', 'state':True}], [AT.run, change_status, {'msg':"Вы вышли из игры. "}]],
+Packet.s_UnreadyFailInGame: [[AT.prn, "Идёт игра. Войти в режим редактирования нельзя."]],
 }
-
+#button_status(screen=1, btn_name="", state=True)
+#
 #print(int(Packet.p_ChatMessage))
-PORT = 3000; FORMAT = 'utf-8'; DISCONNECT_MESSAGE = "!DISCONNECT"; SERVER = "127.0.0.1"  #SERVER = socket.gethostbyname(socket.gethostname())
+PORT = 3000; FORMAT = 'utf-8'; DISCONNECT_MESSAGE = "!DISCONNECT"; SERVER = "192.168.0.107" #SERVER = "127.0.0.1"  #SERVER = socket.gethostbyname(socket.gethostname())
 ADDR = (SERVER, PORT); print('connecting...', ADDR)
 trash=[]
 img=[]
@@ -259,7 +258,6 @@ def out_handle(n):
         out_flag = False
 
 def in_handle(n):
-    #print('in processor started')
     global S, in_data, in_flag, client, PacketActions
     while not S["stop_threads"]:
         if in_flag:
@@ -274,15 +272,17 @@ def in_handle(n):
             S["stop_threads"]   = True
             break
 
-        print("packet_type:", packet_type)
+        print("IN packet#:", packet_type)
 
         if packet_type in PacketActions:
             #print("actions for packet:", PacketActions[packet_type])
             for act in PacketActions[packet_type]:
                 if act[0]==AT.prn:
                     print(act[1])
-                elif act[0]==AT.avc:
-                    S[act[1]]=act[2]
+                elif act[0]==AT.avc: # или: com, varname, value   или  com, {varname:val, ..., }
+                    if isinstance(act[1], dict): S.update(act[1]) # обработка пакетной замены переменных
+                    else: S[act[1]]=act[2]
+
                 elif act[0]==AT.ale:
                     msg_length = int.from_bytes(client.recv(4), "little")
                     if msg_length:
@@ -308,10 +308,7 @@ def in_handle(n):
                     S["res"][2] = int.from_bytes(client.recv(4), "little")
                     print('S["res"]=', S["res"])
 
-
-
         in_flag = False
-        #print('out of handle\n')
     #client.close()
 
 def CleanTrash():
@@ -348,61 +345,6 @@ def getserverdata(*arg, **karg):
     while out_flag: sleep(0.05)
     out_data = [Packet.p_GetServerData]
     out_flag = True
-def getnewfield(*arg, **karg):
-    global S, out_data, out_flag
-    while out_flag: sleep(0.05)
-    out_data = [Packet.p_SetGroundPercent, int(S["screens"][1].sbv.get()) ,Packet.p_FieldRequest]
-    out_flag = True
-def changefieldsize(*arg, **karg):
-    global S, out_data, out_flag
-    while out_flag: sleep(0.05)
-    out_data = [Packet.p_SetFieldSize10 if S["screens"][1].op_var.get()=="10x10" else Packet.p_SetFieldSize5]
-    out_flag = True
-def UnReady(*arg, **karg): # для Ready\Unready p_UnReady
-    global S, out_data, out_flag
-    if S["screens"][1].b8["state"]=="disabled":
-        print("not ready yet")
-        return
-    else:
-        if S["ready"]:
-            S["screens"][1].b8["text"] = "Ready"
-            S["ready"] = False
-        else:
-            S["screens"][1].b8["text"] = "Unready"
-            S["ready"]=True
-
-        #sh=S["screens"][1].pfld.ships[0]
-        #print(">>", sh)
-        #out_data = [Packet.p_SendShip, sh[0], sh[1], sh[2] ] ##[id,x,y,len, set[shp_cells],set[busy]]
-        #out_flag = True
-
-        for sh in S["screens"][1].pfld.ships:
-            while out_flag: sleep(0.05)
-            S["fail"] = "???"
-            #print(">ship>", sh)
-            out_data = [Packet.p_SendShip, sh[1], sh[2], sh[0] ] ##[id,x,y,len, set[shp_cells],set[busy]]
-            out_flag = True
-            #break
-
-            while S["fail"] == "???":
-                #print('.')
-                sleep(0.05)
-            if S["fail"]=="+++":
-                print(">> ERR:", sh)
-                break
-            elif S["fail"]=="---":
-                pass
-                #print(">> Корабль установлен:\n", sh[0:3])
-
-
-
-        while out_flag: sleep(0.05)
-        print("sending Ready packet")
-        out_data = [Packet.p_UnReady]
-        out_flag = True
-
-def Surrender(*arg, **karg):
-    pass
 
 class cell_types(enum.IntEnum):
 	Free = 0       # 0 не занятая клетка
@@ -414,16 +356,13 @@ class Cell():
     def __init__(self, root, x, y, dat=[True, cell_types.Free], shipid=-1): #root-link to field # cell size = 38x38
         self.root           = root # link to field
         self.grnd           = dat[0]
-        #print(">>>>>>>>>>",dat)
         self.type           = dat[1]
         self.ship           = shipid  # принадлежность к конкретному кораблю (-1 нет связи)
         self.id_on_canvas   = -1      # id Объекта на canvas
         self.x              = x
         self.y              = y
-        #print("cell",self.root.C)
 
-
-    def clean(self):
+    def clean(self, *arg, **karg):
         self.root.C.delete(self.id_on_canvas)                 # удаляем старую картинку
 
     def update(self, new_type=""):
@@ -431,11 +370,10 @@ class Cell():
         if new_type not in images_P[self.grnd]: return False
         self.clean()
         self.img  = images_P[self.grnd][self.type][1]
-        self.id_on_canvas = self.root.C.create_image(self.x, self.y, image = self.img, anchor = tk.NW)
-        if not self.root.ofld:
-            self.root.C.tag_bind(self.id_on_canvas, "<ButtonPress-3>",     self.root.setter)
-        else:
-            self.root.C.tag_bind(self.id_on_canvas, "<ButtonPress-1>",     self.root.shooter)
+        self.id_on_canvas = self.root.C.create_image(self.x, self.y, image = self.img, anchor = tk.NW, tag='cell')
+        if not self.root.ofld: self.root.C.tag_bind(self.id_on_canvas, "<ButtonPress-3>",     self.root.setter)
+        else:                  self.root.C.tag_bind(self.id_on_canvas, "<ButtonPress-1>",     self.root.shooter)
+        self.root.C.tag_bind(self.id_on_canvas, "<ButtonPress-2>",     self.update)
         self.type = new_type
 
 ship_list = [
@@ -464,7 +402,6 @@ ship_list = [
 	[4, True,  [[0,0], [0,1], [1,0], [2,0]],[18,20]]       #21
 ]
 
-
 class Field():
     def __init__(self, root, size=1, ofld=False): # root->Tk topmost level
         global S
@@ -492,13 +429,18 @@ class Field():
         x, y, v = S["res"][0],S["res"][1],S["res"][2]
         if v==-1: return
         S[self.ofld][y][x][1] = v
-        S["res"]=[0,0,-1]
-        self.build_self()
+        self.cells[y][x]=Cell(self, self.cells[y][x].x, self.cells[y][x].y, [self.cells[y][x].grnd, v], -1)
+        self.cells[y][x].update()
+
+        S["res"]=[0,0,-1] #dat=[True, cell_types.Free]
+        #self.build_self()
 
     def reset_field(self):
         self.cur_ship   = []
         self.ships      = []
         self.cur_size   = 4
+        self.size       = S["fieldsize"]
+
         self.build_self()
 
     def clean_field(self):
@@ -513,7 +455,7 @@ class Field():
 
     def build_self(self):
         global S
-        #print('Field build self', self.ofld)
+        print('Field build self', self.ofld)
         self.clean_field()
 
         self.size = len(S[0])//5 -1
@@ -529,25 +471,23 @@ class Field():
                 self.cells[y].append(Cell(self, 26+x*40+self.ofld*425+(not self.size and not self.ofld)*200, 50+y*40, S[self.ofld][y][x], -1))
                 self.cells[y][-1].update()
                 #C.tag_bind(imgg, "<Button-1>", wanish) #move
-
     def shooter(self, ev):
         global S, out_data, out_flag
         if not S["game_do_trun"]:
             print('no')
             return # если не ваш ход или просто ожидание
-        _x, _y = self.xy_calc(ev.x, ev.y, self.size, self.ofld, t=False)
+        _x, _y = self.xy_calc(ev.x, ev.y, self.size*5+5, self.ofld, t=False) # !!!###
 
         while out_flag: sleep(0.05)
         out_data = [Packet.p_TurnRes, _x, _y]
         print('turn:',out_data)
         out_flag = True
 
-
-    def setter(self, ev):
+    def setter(self, ev): # расставляет корабли
         global S
         if S["current_screen"]!=1 or S["ready"]: return
         if not self.cur_ship:
-            _x, _y = self.xy_calc(ev.x, ev.y, self.size, self.ofld, t=False)
+            _x, _y = self.xy_calc(ev.x, ev.y, self.size*5+5, self.ofld, t=False)
 
             if S[0][_y][_x][1]==1: # корабль
                 idx = [i for i in range(len(self.ships)) if (_y,_x) in self.ships[i][4]][0]
@@ -568,6 +508,7 @@ class Field():
             if not any( [self.check_amount(i) for i in range(1,5)]  ):
 
                 print('all done')
+                self.root.change_status(msg='Все корабли расставлены! Жмите "Готов"')
                 S["screens"][1].b8["state"]="normal"
                 return # все корабли стоят!!!!!!!!!!!!!!!!!!!!!
 
@@ -610,10 +551,8 @@ class Field():
         #print("ships-busy:", len(self.ships), len(self.busy))
         if not any( [self.check_amount(i) for i in range(1,5)]  ):
             S["screens"][1].b8["state"]="normal"
-
         #        0  1 2   3    4     5      6     7
         #return [id,x,y,size,grnd, canvas, ofld, clr]
-
     def get_busy(self):
         busy = set( [(y,x) for y in range(-2, self.size*5+5+2) for x in range(-2, self.size*5+5+2)] ) - set( [(y,x) for y in range(0, self.size*5+5) for x in range(0, self.size*5+5)] )
         for c_sh in self.ships:
@@ -677,7 +616,9 @@ class Field():
 
     def xy_calc(self, x, y, size, ofld, t=True):
         if t: return [26+x*40+ofld*425+(not (size//5-1) and not ofld)*200, 50+y*40]
+
         _x = (x-26-ofld*425-(not (size//5-1) and not ofld)*200)/40; _y=(y-50)/40
+
         return [int(_x)+1 if (_x-int(x)>0.5) else int(_x), int(_y)+1 if (_y-int(y)>0.5) else int(_y)]
 
     def check_amount(self, ship_size):
@@ -713,13 +654,13 @@ class EndWindow(object):
         self.C = Canvas(self.root, width = 854, height = 482); self.C.place(x=1000, y=0) #(x=-2, y=0)
         self.trash = []
         b2=Button(self.C, text="PlayAgain")
-        b2.bind("<Button-1>", lambda event: screen_server(ev=event, new_screen=2) );  b2.place(x=650,y=450)
+        b2.bind("<Button-1>", lambda event: screen_server(ev=event, new_screen=1) );  b2.place(x=650,y=450)
         b3=Button(self.C, text="Logoff");    b3.bind("<Button-1>", logoff); b3.place(x=790,y=450)
 
     def refresh(self):
         self.C.delete(*self.trash)
         txt=S["game_end_result"] + str(S["res"][0]) + ":" +str(S["res"][1]) + ":" + str(S["res"][2])
-        self.trash.append(self.C.create_text(20, 110, text=txt, fill="red", font="Times 20 italic bold"))
+        self.trash.append(self.C.create_text(300, 110, text=txt, fill="red", font="Times 20 italic bold"))
 
     def hide(self):
         print('hiding window=2')
@@ -733,12 +674,14 @@ class PlayWindow(object):
         global S
         self.root = root #
         self.C = Canvas(self.root, width = 854, height = 482); self.C.place(x=1000, y=0) #(x=-2, y=0)
-        b3=Button(self.C, text="Logoff");    b3.bind("<Button-1>", logoff);        b3.place(x=790,y=450)
-        b7=Button(self.C, text="New field"); b7.bind("<Button-1>", getnewfield);   b7.place(x=720,y=450)
-        self.b8=Button(self.C, text="Ready");     self.b8.bind("<Button-1>", UnReady);       self.b8.place(x=650,y=450)
+        self.C.delete('all')
+        b3=Button(self.C, text="Logoff");          b3.bind("<Button-1>", logoff);            b3.place(x=790,y=450)
+        b7=Button(self.C, text="New field");       b7.bind("<Button-1>", self.getnewfield);  b7.place(x=720,y=450)
+        self.b8=Button(self.C, text="Ready"); self.b8.bind("<Button-1>", self.UnReady); self.b8.place(x=650,y=450)
         self.b8["state"] = "disabled"
 
-        b9=Button(self.C, text="Сдаться");   b9.bind("<Button-1>", Surrender);     b9.place(x=20,y=450)
+        self.buttons={"b8":self.b8}
+        b9=Button(self.C, text="Сдаться");   b9.bind("<Button-1>", self.Surrender);     b9.place(x=20,y=450)
 
         self.C.create_text(515, 462, text="% суши:", fill="red", font="Times 12 italic bold")
         self.sbv = StringVar(root); self.sbv.set(S["ground_index"])
@@ -749,17 +692,102 @@ class PlayWindow(object):
         self.op_var = StringVar(root);  self.op_var.set("10x10")
         field_size_menu = OptionMenu(self.C, self.op_var, *["5x5", "10x10"]);
         field_size_menu.place(x=397, y=448)  #op_var.trace('w', lambda x,y,z: self.check_pat (x,y,z,widget=self.pw ))
-        self.op_var.trace('w', changefieldsize)
+        self.op_var.trace('w', self.changefieldsize)
+
+        self.status_msg  = ""
+        self.status_msgC= self.C.create_text(200, 10, text=self.status_msg, fill="red", font="Times 12 italic bold")
+        self.sbv_ald = 80
 
         self.build_self()
 
         PacketActions[Packet.s_SendField].append([AT.run, self.pfld.reset_field, {}])
+        PacketActions[Packet.s_SendField].append([AT.run, self.ofld.reset_field, {}])
         PacketActions[Packet.s_SendOponentField].append([AT.run, self.ofld.reset_field, {}])
 
+    def change_status(self, msg="", before="", after=""): #before="", msg="", after=""
+        self.status_msg = (before + self.status_msg + after) if (before!="" or after!="") else msg # значение msg игнорируется уди есть befor или after
+        self.C.delete(self.status_msgC)
+        self.status_msgC= self.C.create_text(200, 10, text=self.status_msg, fill="red", font="Times 12 italic bold")
 
-    def tst(self, ev):
-        self.pfld.clean_field()
-        self.ofld.clean_field()
+    def reset_self(self):
+        S[0]=[[[0,0] for x in range(S["fieldsize"])] for y in range(S["fieldsize"])]
+        S[1]=[[[0,0] for x in range(S["fieldsize"])] for y in range(S["fieldsize"])]
+        self.pfld.reset_field()
+        self.ofld.reset_field()
+        self.change_status("")
+
+    def getnewfield(self, *arg, **karg):
+        global S, out_data, out_flag
+        if S["in_game"] or S["ready"]: return
+        while out_flag: sleep(0.05) #
+        try:
+            self.sbv_ald=int(self.sbv.get())
+        except: pass
+        self.sbv.set(self.sbv_ald)
+        out_data = [Packet.p_SetGroundPercent, self.sbv_ald]
+        out_flag = True
+
+    def changefieldsize(self, *args, **kargs): #S["screens"][1]
+        global S, out_data, out_flag
+        while out_flag: sleep(0.05)
+        if self.op_var.get()=="10x10":
+            out_pack = Packet.p_SetFieldSize10
+            scr_size = 10
+        else:
+            out_pack = Packet.p_SetFieldSize5
+            scr_size = 5
+
+        self.pfld.clean_field(); self.ofld.clean_field();
+        self.C.delete('all')
+        self.C.create_text(515, 462, text="% суши:", fill="red", font="Times 12 italic bold")
+        self.C.create_text(360, 462, text="Тип поля:", fill="red", font="Times 12 italic bold")
+
+        self.pfld.size = scr_size; self.ofld.size = scr_size
+        #sleep(0.5)
+        #self.C.delete('cells')
+        #self.C.delete('all')
+        out_data = [out_pack]; out_flag = True
+
+
+    def Surrender(self, *arg, **karg):
+        global out_data, out_flag
+        while out_flag: sleep(0.05)
+        out_data = [Packet.p_Surrender]
+        out_flag = True
+
+    def UnReady(self, *arg, **karg): # для Ready\Unready p_UnReady
+        global S, out_data, out_flag #"ready"] "in_game"
+        print('S["in_game"]=', S["in_game"], len(S["screens"][1].pfld.ships))
+        if S["in_game"]: #Идет игра. Uready невозможно
+            if not S["s_WaitingOpponentJoin"]:
+                print('Logoff or surrender to uready now.')
+                self.change_status(msg="Вы в игре. Для выхода сдайтесь.")
+                return
+            while out_flag: sleep(0.05)
+            out_data = [Packet.p_UnReady]; out_flag = True # отсылаем отмену готовности
+            return
+
+        if S["screens"][1].b8["state"]=="disabled": return # кнопка не активна
+
+        #if S["ready"]:
+        #    S["screens"][1].b8["text"] = "Не готов"
+        #    S["ready"] = False
+        #else:
+        #    S["screens"][1].b8["text"] = "Готов"
+        #S["ready"]=True
+
+        for sh in S["screens"][1].pfld.ships: #[id,x,y,len, set[shp_cells],set[busy]]
+            while out_flag: sleep(0.05)
+            S["fail"] = "???"
+            out_data = [Packet.p_SendShip, sh[1], sh[2], sh[0] ]; out_flag = True
+
+            while S["fail"] == "???": sleep(0.05)
+            if S["fail"]=="+++":
+                print(">> ERR:", sh)
+                break
+
+        while out_flag: sleep(0.05)
+        out_data = [Packet.p_UnReady]; out_flag = True
 
     def hide(self):
         self.C.place(x=1000, y=0)
@@ -928,7 +956,6 @@ def main():
     S["screens"]=[]
     S["screens"].append(StartWindow(root))
     S["screens"].append(PlayWindow(root))
-
     S["screens"].append(EndWindow(root))
 
     root.mainloop()
