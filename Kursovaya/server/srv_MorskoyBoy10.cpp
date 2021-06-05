@@ -19,8 +19,8 @@
 
 using json = nlohmann::json; json users; //using namespace std;
 std::string users_filename = "users.json";
-//std::string	SERVER_IP = "127.0.0.1"; int SERVER_PORT = 3000;
-std::string	SERVER_IP = "192.168.0.107"; int SERVER_PORT = 3000;
+std::string	SERVER_IP = "127.0.0.1"; int SERVER_PORT = 3000;
+//std::string	SERVER_IP = "192.168.0.107"; int SERVER_PORT = 3000;
 
 std::string GREET_MSG = "You have been connected to the server";
 std::string ALL_SLOTS_BUSY = "Please try again later.";
@@ -485,8 +485,8 @@ public:
 
 				if (this->status == RUNNING) {		// инициализация старта игры
 					this->ReRoll();					// жеребьёвка первого хода
-					if (!SendShort(gm_users[whos_turn], s_YourTurn)) return false;
-					if (!SendShort(gm_users[whos_wait()], s_YouWait))  return false;
+					if (!SendShort(gm_users[whos_turn],   s_YourTurn)) return false;
+					if (!SendShort(gm_users[whos_wait()], s_YouWait )) return false;
 				}
 			}
 		}
@@ -655,9 +655,9 @@ bool ProcessPacket(int idx, Packet packettype) {
 		if (Cli[idx].in_game or Cli[idx].need_login or (percent < 0) or (percent > 100)) { // %-неправильно введен ИЛИ не залогинен или в игре уже. установка корабля невозможна
 			if (!SendShort(idx, s_SetGroundError)) { return false; }
 		}
-		Cli[idx].ground_index = percent;
-		Cli[idx].pfld.ground_index = percent;
-		Cli[idx].ofld.ground_index = percent;
+		Cli[idx].ground_index		= percent;
+		Cli[idx].pfld.ground_index	= percent;
+		Cli[idx].ofld.ground_index	= percent;
 		Cli[idx].pfld.gen_fileld();
 		Cli[idx].pfld.clear_field();
 		Cli[idx].ofld.clear_field();
@@ -717,7 +717,7 @@ bool ProcessPacket(int idx, Packet packettype) {
 				if (!SendShort(idx, s_UnreadyFailInGame)) return false; break; // отсылаем ошибку и выходим
 			}
 			// опонента нет пока можно выйти из игры.
-			Cli[idx].gm->status = EMPTY;
+			Cli[idx].gm->status		 = EMPTY;
 			Cli[idx].gm->gm_users[0] = ERRor; Cli[idx].gm->gm_users[1] = ERRor;
 			Cli[idx].gm = nullptr;
 			if (!SendShort(idx, s_YouAreNotInGame)) return false;
@@ -733,27 +733,26 @@ bool ProcessPacket(int idx, Packet packettype) {
 			}
 
 			int new_game = FindFreeGame(Cli[idx].field_size == 10);
-			if (new_game == ERRor) {
-				if (!SendShort(idx, s_FailedToFindGame)) { return false; }
-				return false;
+			if (new_game == ERRor) { // не удалось найти новую игру: слоты заняты или нет подходящего размера поля. редкий случай
+				SendShort(idx, s_FailedToFindGame); return false;
 			}
-			if (!Gm[new_game].AddPlayer(idx, Cli[idx].field_size == 10)) {
-				return false;
-			}
+			
+			if (!Gm[new_game].AddPlayer(idx, Cli[idx].field_size == 10)) { return false;}
+
 			Cli[idx].gm = &Gm[new_game];
 			Cli[idx].in_game = true;
+
 			if (!SendShort(idx, s_YouAreInGame)) { return false; }
 			if (Cli[idx].gm->HasFreePlace() != ERRor) { // ждем ещё одного опонента
 				if (!SendShort(idx, s_WaitingOpponentJoin)) { return false; }
 			}
 			else {
 
+				//Cli[idx].gm->ReRoll();
+				//if (!SendShort(Cli[idx].gm->whos_turn, s_YourTurn))  { return false; }
+				//if (!SendShort(Cli[idx].gm->whos_wait(), s_YouWait)) { return false; }
+
 				int opp = Cli[idx].gm->OponentID(idx);
-
-				Cli[idx].gm->ReRoll();
-				if (!SendShort(Cli[idx].gm->whos_turn, s_YourTurn)) { return false; }
-				if (!SendShort(Cli[idx].gm->whos_wait(), s_YouWait)) { return false; }
-
 				if (!Cli[idx].pfld.send_self_no_ships(opp, s_SendOponentField)) { return false; }
 				if (!Cli[opp].pfld.send_self_no_ships(idx, s_SendOponentField)) { return false; }
 			}
