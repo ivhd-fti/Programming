@@ -786,7 +786,7 @@ class PlayWindow(object):
     def change_status(self, msg="", before="", after="", clr="red"): #before="", msg="", after=""
         self.status_msg = (before + self.status_msg + after) if (before!="" or after!="") else msg # значение msg игнорируется уди есть befor или after
         self.C.delete(self.status_msgC)
-        self.status_msgC= self.C.create_text(200, 10, text=self.status_msg, fill=clr, font="Times 12 italic bold")
+        self.status_msgC= self.C.create_text(300, 10, text=self.status_msg, fill=clr, font="Times 12 italic bold")
 
     def reset_self(self):
         S[0]=[[[0,0] for x in range(S["fieldsize"])] for y in range(S["fieldsize"])]
@@ -802,6 +802,9 @@ class PlayWindow(object):
         try:
             self.sbv_ald=int(self.sbv.get())
         except: pass
+        if self.sbv_ald> 100: self.sbv_ald=100
+        if self.sbv_ald< 0: self.sbv_ald=0
+
         self.sbv.set(self.sbv_ald)
         out_data = [Packet.p_SetGroundPercent, self.sbv_ald]
         out_flag = True
@@ -1042,10 +1045,10 @@ def main():
 
     root.protocol("WM_DELETE_WINDOW", on_closing)
     S["screens"]=[]
-    #S["screens"].append(StartWindow(root))
-    #S["screens"].append(PlayWindow(root))
+    S["screens"].append(StartWindow(root))
+    S["screens"].append(PlayWindow(root))
     S["screens"].append(EndWindow(root))
-    S["screens"][-1].show()
+    #S["screens"][-1].show()
 
     root.mainloop()
 

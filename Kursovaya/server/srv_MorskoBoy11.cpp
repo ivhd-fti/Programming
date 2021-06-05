@@ -93,7 +93,7 @@ enum Packet { //uint32_t
 	s_RefreshField_O = 68,		// COM: обновление поля оппонента
 };
 
-bool SendMsg(std::string&, int); bool SendShort(int, Packet); bool SendLong(int, int, int, int);
+bool SendMsg(std::string&, int); bool SendShort(int, Packet); bool SendLong(int, int, int, int); int GetPfldCellType(int, int, int);
 ///////////////////////////////////////////////////////////////////////////
 // Json Users Database
 bool ConfigSave(json& users_data) {
@@ -364,8 +364,10 @@ public:
 	}
 
 	void SetCrosses(int x, int y, bool full, int op_idx, int pl_idx) {// прописывает вокруг x,y крестики там, куда уже нет смысла стрелять
+
 		if (not_in_field(x, y)) return;
-		if (Field[y][x].type == Free) return; // если тут уже что-то стоит (клетка не свободна), то крестика не нужно
+		if ((Field[y][x].type != Ship) and (Field[y][x].type != Broken_ship)) return; // если тут уже что-то стоит (клетка не свободна), то крестика не нужно
+		
 		int _x, _y;									  // full=true, ставит ещё и вертикальным крестом
 		//offset crosses_map[2][4] = { { {-1,-1}, {-1,1}, {1,-1}, {1,1} }, { {0,1}, {0,-1}, {1,0}, {-1,0} } };
 		for (int fulls = 0; fulls < 2; fulls++) { // цикл по двум схемам крестико: диагональ и КРЕСТ
@@ -375,7 +377,7 @@ public:
 				_y = y + crosses_map[fulls][off].add_y;
 				if (not_in_field(_x, _y)) continue;
 
-				if (Field[_y][_x].type == Free) {// есть объект
+				if (GetPfldCellType(op_idx, _x, _y) == Free) {// есть объект
 					Field[_y][_x].type = Cross;
 					SendShort(op_idx, s_SendCell_P); SendLong(op_idx, _x, _y, Cross);
 					SendShort(pl_idx, s_SendCell_O); SendLong(pl_idx, _x, _y, Cross);
@@ -511,6 +513,9 @@ public:
 };
 plr Cli[max_players_on_server];
 
+int GetPfldCellType(int idx, int x, int y) {
+	return Cli[idx].pfld.Field[y][x].type;
+}
 int  FindFreeIndex() {
 	int res = ERRor;
 	for (int i = 0; i < max_players_on_server; i++) {
