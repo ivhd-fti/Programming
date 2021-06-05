@@ -94,6 +94,7 @@ enum Packet { //uint32_t
 };
 
 bool SendMsg(std::string&, int); bool SendShort(int, Packet); bool SendLong(int, int, int, int); int GetPfldCellType(int, int, int);
+void PrnFld(int);
 ///////////////////////////////////////////////////////////////////////////
 // Json Users Database
 bool ConfigSave(json& users_data) {
@@ -177,29 +178,29 @@ std::ostream& operator<< (std::ostream& out, cell& _cell) { out << ((_cell.grnd)
 struct offset { int add_x; int add_y; }; // смещение (x,y) от головной клетки корабля
 struct ships_schem { int len; bool grnd; offset s[4]; }; // gnd-суша\вода, len-клеток, смещения на занятую клетку
 ships_schem ship_list[22] = {
-	1, false, {{0,0}, {0,0}, {0,0}, {0,0}}, //0 1-палубный вода
-	1, true,  {{0,0}, {0,0}, {0,0}, {0,0}}, //1 1-палубный суша
-	2, false, {{0,0}, {1,0}, {0,0}, {0,0}}, //2 
-	2, false, {{0,0}, {0,1}, {0,0}, {0,0}}, //3
-	2, true,  {{0,0}, {1,0}, {0,0}, {0,0}}, //4
-	2, true,  {{0,0}, {0,1}, {0,0}, {0,0}}, //5
-	3, false, {{0,0}, {0,1}, {0,2}, {0,0}}, //6    6w-###   8g-## 9g-##
-	3, false, {{0,0}, {1,0}, {2,0}, {0,0}}, //7    7w-#         #    #
-	3, true,  {{0,0}, {-1,0}, {0,1}, {0,0}}, //8       #
-	3, true,  {{0,0}, {1,0}, {0,1}, {0,0}}, //9       
-	3, true,  {{0,0}, {0,-1}, {1,0}, {0,0}}, //10            10g-#   11g- #
-	3, true,  {{1,0}, {-1,0}, {0,-1}, {0,0}}, //11                ##      ##
+	1, false, {{0,0}, {0,0}, {0,0}, {0,0}},		//0 1-палубный вода
+	1, true,  {{0,0}, {0,0}, {0,0}, {0,0}},		//1 1-палубный суша
+	2, false, {{0,0}, {1,0}, {0,0}, {0,0}},		//2 
+	2, false, {{0,0}, {0,1}, {0,0}, {0,0}},		//3
+	2, true,  {{0,0}, {1,0}, {0,0}, {0,0}},		//4
+	2, true,  {{0,0}, {0,1}, {0,0}, {0,0}},		//5
+	3, false, {{0,0}, {0,1}, {0,2}, {0,0}},		//7    6w-###   8g-## 9g-##
+	3, false, {{0,0}, {1,0}, {2,0}, {0,0}},		//6    7w-#         #    #
+	3, true,  {{0,0}, {-1,0}, {0,1}, {0,0}},	//8       #
+	3, true,  {{0,0}, {1,0}, {0,1}, {0,0}},		//9       #      
+	3, true,  {{0,0}, {0,-1}, {1,0}, {0,0}},	//10            10g-#   11g- #
+	3, true,  {{0,0}, {-1,0}, {0,-1}, {0,0}},	//11                ##      ##
 
-	4, false, {{0,0}, {0,1}, {0,2}, {0,3}}, //12 13w- #      12w- ####
-	4, false, {{0,0}, {1,0}, {2,0}, {3,0}}, //13      #   14g- ##  16g- #  18g- ##   20g- #
-	4, true,  {{0,0}, {1,0}, {0,1}, {0,2}}, //14      #        #        #        #        #
-	4, true,  {{0,0}, {0,1}, {-1,0}, {-2,0}}, //15      #        #       ##        #        ##
-	4, true,  {{0,0}, {-1,0}, {0,-1}, {0,-2}}, //16
-	4, true,  {{0,0}, {0,-1}, {1,0}, {2,0}}, //17 15g- ###   17g - #    19g-  #     21g - ###
-	4, true,  {{0,0}, {-1,0}, {0,1}, {0,2}}, //18        #         ###      ###           #
-	4, true,  {{0,0}, {0,-1}, {-1,0}, {-2,0}}, //19
-	4, true,  {{0,0}, {1,0}, {0,-1}, {0,-2}}, //20
-	4, true,  {{0,0}, {0,1}, {1,0}, {2,0}}, //21
+	4, false, {{0,0}, {0,1}, {0,2}, {0,3}},		//12 13w- #      12w- ####
+	4, false, {{0,0}, {1,0}, {2,0}, {3,0}},		//13      #   14g- ##  16g- #  18g- ##   20g- #
+	4, true,  {{0,0}, {1,0}, {0,1}, {0,2}},		//14      #        #        #        #        #
+	4, true,  {{0,0}, {0,1}, {-1,0}, {-2,0}},	//15      #        #       ##        #        ##
+	4, true,  {{0,0}, {-1,0}, {0,-1}, {0,-2}},	//16
+	4, true,  {{0,0}, {0,-1}, {1,0}, {2,0}},	//17 15g- ###   17g - #    19g-  #     21g - ###
+	4, true,  {{0,0}, {-1,0}, {0,1}, {0,2}},	//18        #         ###      ###           #
+	4, true,  {{0,0}, {0,-1}, {-1,0}, {-2,0}},	//19
+	4, true,  {{0,0}, {1,0}, {0,-1}, {0,-2}},	//20
+	4, true,  {{0,0}, {0,1}, {1,0}, {2,0}},		//21
 };
 struct ship { int _type = ERRor; int _x; int _y; int len;  int idx; cell* cells[4]; }; //ship_list[_type].len
 std::ostream& operator<< (std::ostream& out, ship& _ship) {
@@ -338,6 +339,8 @@ public:
 		cell* _cell = this->get_cell(x, y);						// указатель на клетку (x, y)
 		cell_types ald_cell_type = _cell->type; shot_result ret_result = Miss;
 
+		this->print_field(); std::cout << "\n-------------\n";
+
 		switch (ald_cell_type) {								// попали в Hit, Broken_ship - ignore
 		case Free:  {}											// сваливание на Cross, т.к. одинаковый результат хода
 		case Cross: { this->set_cell(x, y, _cell->grnd, Hit); break; }
@@ -386,7 +389,14 @@ public:
 			if (!full) break; // полная обвязка крестиками не нужна значит
 		}
 	}
-
+	void print_field() {
+		for (int y = 0; y < 10; y++) {
+			std::cout << "\n";
+			for (int x = 0; x < 10; x++) {
+				std::cout << Field[y][x] << " ";
+			}
+		}
+	}
 	// просматривает соседние клетки и рекомендует какой тип территорри поставить
 	bool fld_count_around(int x, int y) {
 		int gnd_cnt = 0; int wtr_cnt = 0;
@@ -458,6 +468,10 @@ public:
 					this->ReRoll();								// жеребьёвка первого хода
 					if (!SendShort(gm_users[whos_turn],   s_YourTurn)) return false;
 					if (!SendShort(gm_users[whos_wait()], s_YouWait))  return false;
+
+					PrnFld(this->gm_users[0]);
+					PrnFld(this->gm_users[1]);
+
 				}
 			}
 		}
@@ -512,6 +526,12 @@ public:
 	}
 };
 plr Cli[max_players_on_server];
+
+void PrnFld(int idx) {
+	std::cout << "\n\nField for #" << idx << "\n";
+	Cli[idx].pfld.print_field();
+	std::cout << "\n--------------------------\n";
+}
 
 int GetPfldCellType(int idx, int x, int y) {
 	return Cli[idx].pfld.Field[y][x].type;
@@ -891,6 +911,9 @@ bool ProcessPacket(int idx, Packet packettype) {
 		if (opponent_id == ERRor)			return false;	// чё-то нет противника
 		if (Cli[opponent_id].idx == ERRor)	return false;	// противник отпал с сервера?
 		if (Cli[opponent_id].need_login)	return false;	// чё-то противник не залогинен вообще?
+
+		PrnFld(idx);
+		PrnFld(opponent_id);
 
 		shot_result turn_res = Cli[opponent_id].pfld.shot(x, y); //Miss/Wounded/Killed/WinGameShoot
 
