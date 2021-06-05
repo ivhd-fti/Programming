@@ -215,9 +215,8 @@ offset crosses_map[2][4] = { { {-1,-1}, {-1,1}, {1,-1}, {1,1} }, { {0,1}, {0,-1}
 
 // FIELD
 class field {
-	std::vector <std::vector<cell>> Field;
-
 public:
+	std::vector <std::vector<cell>> Field;
 	std::vector<ship> ships;
 	int field_size = 5;
 	int ground_index = 0; // 0
@@ -228,7 +227,8 @@ public:
 		gen_fileld(); // clean_self();
 	}
 	bool not_in_field(int x, int y) {
-		return !((x >= 0) and (y >= 0) and (x < field_size) and (y < field_size));}
+		return !((x >= 0) and (y >= 0) and (x < field_size) and (y < field_size));
+	}
 	int alive(int idx) { // подсчитывает сколько осталось живых клеток корабля
 		if (idx > (int)ships.size()) return 0;
 		int res = 0;
@@ -287,8 +287,9 @@ public:
 		return new_ship.idx;
 	}
 	void clear_field() {
-		for (int y = 0; y < field_size; y++) {
-			for (int x = 0; x < field_size; x++) {
+		int fsize = Field.size();
+		for (int y = 0; y < fsize; y++) {
+			for (int x = 0; x < fsize; x++) {
 				Field[y][x].ship_id = ERRor;
 				Field[y][x].type = Free;
 			}
@@ -334,43 +335,18 @@ public:
 	}
 	shot_result shot(int x, int y) {
 		if (not_in_field(x, y)) return WrongShot;
-		cell* _cell = this->get_cell(x, y); // указатель на клетку (x, y)
+		cell* _cell = this->get_cell(x, y);						// указатель на клетку (x, y)
 		cell_types ald_cell_type = _cell->type; shot_result ret_result = Miss;
 
-		switch (ald_cell_type) {
-		case Free: {} // сваливание на Cross, т.к. одинаковый результат хода
-		case Cross: { this->set_cell(x, y, _cell->grnd, Hit);				break; }
-		case Ship: {
+		switch (ald_cell_type) {								// попали в Hit, Broken_ship - ignore
+		case Free:  {}											// сваливание на Cross, т.к. одинаковый результат хода
+		case Cross: { this->set_cell(x, y, _cell->grnd, Hit); break; }
+		case Ship:  {
 			this->set_cell(x, y, _cell->grnd, Broken_ship);
-			ret_result = (this->alive(_cell->ship_id)) ? Wounded : Killed;	break; }
-		default: {} // попали в Hit, Broken_ship - ignore
-		}
-		if (ret_result != Miss) {
-			//this->SetCrosses(); // ставим крестики если попали
-			if (!this->field_have_any_alive()) {
-				return WinGameShot; // конец игре 
-			}
-		}
-		return ret_result; // Miss или Wounded/Killed. x,y есть, т.е. и сам ship в клетке есть
+			return ((this->alive(_cell->ship_id)) ? Wounded : ((this->field_have_any_alive())? Killed : WinGameShot));}
+		}	return ret_result; // Miss или Wounded/Killed. x,y есть, т.е. и сам ship в клетке есть
 	}
-	void print_field() {
-		for (int y = 0; y < field_size; y++) {
-			std::cout << "\n";
-			for (int x = 0; x < field_size; x++) {
-				std::cout << Field[y][x] << " ";
-			}
-		}
-	}
-	void copy_self_no_ships(field& fld) {
-		fld.Field.clear();
-		fld.Field.resize(field_size);
-		for (int y = 0; y < field_size; y++) {
-			fld.Field[y].resize(field_size);
-			for (int x = 0; x < field_size; x++) {
-				fld.set_cell(x, y, this->get_cell(x, y)->grnd, Free);
-			}
-		}
-	}
+
 	bool send_self_no_ships(int idx, Packet pack = s_SendField) {
 		json snd_fld = json::array(); //json::object()
 		for (int y = 0; y < field_size; y++) {
@@ -386,7 +362,7 @@ public:
 		if (!SendMsg(field_to_send, idx)) return false;
 		return true;
 	}
-	// Крестики не отсылает пока клиенту
+
 	void SetCrosses(int x, int y, bool full, int op_idx, int pl_idx) {// прописывает вокруг x,y крестики там, куда уже нет смысла стрелять
 		if (not_in_field(x, y)) return;
 		if (Field[y][x].type == Free) return; // если тут уже что-то стоит (клетка не свободна), то крестика не нужно
@@ -409,20 +385,19 @@ public:
 		}
 	}
 
-	//private:
-		// просматривает соседние клетки и рекомендует какой тип территорри поставить
+	// просматривает соседние клетки и рекомендует какой тип территорри поставить
 	bool fld_count_around(int x, int y) {
 		int gnd_cnt = 0; int wtr_cnt = 0;
 		for (int _x = x - 1; _x < x + 2; _x++) {
 			for (int _y = y - 1; _y < y + 2; _y++) {
 				if (not_in_field(_x, _y)) continue;
 				if (Field[y][x].type) gnd_cnt++;
-				else wtr_cnt++;
+				else				  wtr_cnt++;
 			}
 		}
 		return gnd_cnt > wtr_cnt;
 	}
-	// генерация более-менее однородных территорий (острова и участки суши)
+	// генерация более-менее однородных территорий (острова и участки суши) чтобы не было рандомной мозаики вместо поля
 	void gen_fileld() {
 		int total_ground = (field_size * field_size) * ground_index / 100;	// количество клеток суши
 		int total_water = field_size * field_size - total_ground;			// количество клеток воды
@@ -432,47 +407,41 @@ public:
 			Field[y].resize(field_size);
 			for (int x = 0; x < field_size; x++) {
 				res = fld_count_around(x, y);
-				if (rand() % 100 <= 10) res = !res; // 10% шанс нарушить рекомендацию - можно менять
+				if (rand() % 100 <= 15) res = !res;							// 15% шанс нарушить рекомендацию - можно менять
 				if ((res and total_ground > 0) or (!res and total_water <= 0)) { gnd_type_set = true; total_ground--; }
 				else { gnd_type_set = false; total_water--; }
 				Field[y][x] = cell(gnd_type_set);
-			}
-		}
+			}}
 	}
 };
 
 // GAME
 class game {
 public:
-	int gm_users[2] = { ERRor,ERRor };	// IDs законнектившихся пользователей
-	bool fld_size;					// размер поля: true=10x10, false=5x5
-	int whos_turn;					// Чей ход: индекс игрока 0 или 1
-	int status = EMPTY;				// статус игры: EMPTY -1, WAITING 1, RUNNING 2
+	int gm_users[2] = { ERRor,ERRor };							// IDs законнектившихся пользователей
+	bool fld_size;												// размер поля: true=10x10, false=5x5
+	int whos_turn;												// Чей ход: индекс игрока 0 или 1
+	int status = EMPTY;											// статус игры: EMPTY -1, WAITING 1, RUNNING 2
 
 	game(bool _fld_size = true) {
-		ReRoll();					// определяем, кто первый ходит
 		this->fld_size = _fld_size;
 	}
-	void SwapTurn() { this->whos_turn = ((this->whos_turn==1) ? 0 : 1); }
-	void ReRoll() { whos_turn = rand() % 2; }
-	int whos_wait() { return ((whos_turn==1)? 0 : 1); }
-	int HasFreePlace() {			// В игре есть свободное место? ==>index свободного места или ERRor (-1)
-		return (gm_users[0] == EMPTY) ? 0 : ((gm_users[1] == EMPTY) ? 1 : ERRor);
+	void SwapTurn() { this->whos_turn = ((this->whos_turn == 1) ? 0 : 1); }
+	void ReRoll() { whos_turn = rand() % 2; }					// определяем, кто первый ходит
+	int whos_wait() { return ((whos_turn == 1) ? 0 : 1); }
+	int HasFreePlace() {										// В игре есть свободное место? ==>index свободного места или ERRor (-1)
+		return (gm_users[0] == EMPTY) ? 0 : ((gm_users[1] == EMPTY) ? 1 : ERRor);}
+	bool MyTurn(int idx) {										// проверяет сейчас ход idx игрока?
+		return ((status == RUNNING) and (gm_users[whos_turn] == idx));
 	}
-	bool MyTurn(int idx) {			// проверяет сейчас ход idx игрока?
-		//return ((status == RUNNING) and (gm_users[whos_turn] == idx));
-		bool ress = (gm_users[whos_turn] == idx);
-		return (gm_users[whos_turn] == idx);
-	}
-	bool ThisPlayerInThisGame(int idx) { // Проверяет игрок idx играет в этой игре?
+	bool ThisPlayerInThisGame(int idx) {						// Проверяет игрок idx играет в этой игре?
 		return ((gm_users[0] == idx) or (gm_users[1] == idx));
 	}
-	int OponentID(int idx) {		// возвращает id опонента
+	int OponentID(int idx) {									// возвращает id опонента
 		if (ThisPlayerInThisGame(idx)) {
-			if ((gm_users[0] != ERRor) and (gm_users[0] != idx)) return gm_users[0];
+			if      ((gm_users[0] != ERRor) and (gm_users[0] != idx)) return gm_users[0];
 			else if ((gm_users[1] != ERRor) and (gm_users[1] != idx)) return gm_users[1];
-		}
-		return ERRor;		// ==> ERRor, если игрок вообще тут не играет
+		} return ERRor;											// ==> ERRor, если игрок вообще тут не играет
 	}
 	bool AddPlayer(int idx, bool _fld_size) {// Добавить игрока в игру. 
 		// если ещё пустая игра ИЛИ размеры полей совпадают И есть место: добавляем
@@ -480,60 +449,65 @@ public:
 			int plr_pos = this->HasFreePlace();
 			if (plr_pos != ERRor) {
 				this->gm_users[plr_pos] = idx;
-				this->fld_size = _fld_size;
-				this->status = (this->status == EMPTY) ? WAITING : RUNNING;
+				this->fld_size			= _fld_size;
+				this->status			= (this->status == EMPTY) ? WAITING : RUNNING;
 
-				if (this->status == RUNNING) {		// инициализация старта игры
-					this->ReRoll();					// жеребьёвка первого хода
+				if (this->status == RUNNING) {					// инициализация старта игры
+					this->ReRoll();								// жеребьёвка первого хода
 					if (!SendShort(gm_users[whos_turn],   s_YourTurn)) return false;
-					if (!SendShort(gm_users[whos_wait()], s_YouWait )) return false;
+					if (!SendShort(gm_users[whos_wait()], s_YouWait))  return false;
 				}
 			}
 		}
-
 		return true;
 	}
+
+	void Clean_Self(){
+		this->status   = EMPTY;	this->gm_users[0] = ERRor;
+		this->fld_size = true;	this->gm_users[1] = ERRor;
+	}
+
+
 };
 game Gm[max_games_on_server];
 
 ///////////////////////////////////////////////////////////////////////////
 
-enum plr_actions {
-	Need_Login = 1,
-	Wait_login,
-};
-
 class plr { //uint_fast16_t
 public:
-	int idx = EMPTY;						// индекс в базе законнектившихся
-	bool need_login = true;					// Основные состояния клиента: залогинен ли или просто законнекчен
-	bool in_game = false;				// уже играет
+	int idx			= EMPTY;								// индекс в базе законнектившихся
+	bool need_login = true;									// Основные состояния клиента: залогинен ли или просто законнекчен
+	bool in_game	= false;								// уже в игре
 
-	int field_size = 10, ground_index = 50; // Параметры мгрового поля: получаются от клиента
+	int field_size = 10, ground_index = 50;					// Параметры игрового поля: получаются от клиента
 
 	std::string login = "";
 	int battles = 0; int score = 0;
-	game* gm = nullptr; //&game(true);
+	game* gm = nullptr;										//&game(true);
 
-	SOCKET con;  // сокет обслуживания Клиента
+	SOCKET con;												// сокет обслуживания Клиента
 	plr(SOCKET con = INVALID_SOCKET) { this->con = con; }	// (*this).con = con;
 	field pfld = field(ground_index, field_size == 10);		// шаблон поля клиента
 	field ofld = field(ground_index, field_size == 10);		// временное поле опонента
 
-	bool CanShootNow(int plr_idx) { // залогинен, готов, в игре, есть норм указатель на игру, и его ход
+	bool CanShootNow(int plr_idx) {							// залогинен, готов, в игре, есть норм указатель на игру, и его ход
 		std::cout << need_login << in_game << (gm != nullptr) << (gm->MyTurn(plr_idx)) << "\n";
 		return (!need_login and (in_game) and (gm != nullptr) and (gm->MyTurn(plr_idx)));
 	}
-	void CleanClient() {
-		this->need_login = true;
-		this->in_game = false;
-		this->login = "";	this->battles = 0;	this->score = 0; this->field_size = 10;
-		this->pfld.field_size = 10; this->ofld.field_size = 10;
+	void CleanClient(bool disconnect = true) {
+		if (disconnect) { this->need_login = true; this->login = "";}
+		this->in_game			= false;
+		this->gm				= nullptr;
+		this->battles			= 0;	
+		this->score				= 0; 
+		this->pfld.clear_field(); 
+		this->ofld.clear_field();
+		this->field_size		= 10;
+		this->pfld.field_size	= 10; 
+		this->ofld.field_size	= 10;
 		this->pfld.ships.clear();
+		this->ofld.ships.clear();
 	}
-
-private:
-	plr_actions act = Need_Login; // стартовое значение - требуется Login
 };
 plr Cli[max_players_on_server];
 
@@ -543,57 +517,41 @@ int  FindFreeIndex() {
 		if (Cli[i].idx == EMPTY) { res = i; break; }
 	} return res;
 }
-int  FindFreeGame(bool game_size) {// возвращает или игру в которой уже есть один игрок и ждет, при этом
-	int res = ERRor;	int free = ERRor;// совпадает размер поля игроков. Или просто пустую игру, в которой игрок будет первым
+int  FindFreeGame(bool game_size) {			// возвращает или игру в которой уже есть один игрок и ждет, при этом
+	int res = ERRor;	int free = ERRor;	// совпадает размер поля игроков. Или просто пустую игру, в которой игрок будет первым
 	for (int i = 0; i < max_games_on_server; i++) {
 		if (Gm[i].status == EMPTY) { free = i; }
-		if ((Gm[i].status == WAITING) and (Gm[i].fld_size == game_size)) {
-			res = i; break;
-		}
-	}
-	return ((res == ERRor) ? free : res); //если не нашлось игры с одним игроком, то новую открывает или ERRor, если нет свободного слота (что вряд ли возможно)
+		if ((Gm[i].status == WAITING) and (Gm[i].fld_size == game_size)) {res = i; break;}	}
+	return ((res == ERRor) ? free : res);	// если не нашлось игры с одним игроком, то новую открывает или ERRor, если нет свободного слота (что вряд ли возможно)
 }
 
-bool EndGame(int idx, int sur_win=0) { // idx - индекс победителя
+bool EndGame(int idx, int sur_win = 0) {	// idx - индекс победителя
 	game* _gm = Cli[idx].gm;
 
-	if (!_gm->ThisPlayerInThisGame(idx)) return false; // странно. нет игрока этого в игре
+	if (!_gm->ThisPlayerInThisGame(idx)) return false;	// странно. нет игрока этого в игре
 	int opponent_id = ((_gm->gm_users[0] == idx) ? _gm->gm_users[1] : _gm->gm_users[0]);
-	if (opponent_id == ERRor) { return false; } // странно опонета нет. как мы сюда попали? )
-	// ["", "", "17dec2020.4:15", 0, 0]
+	if (opponent_id == ERRor) { return false; }			// странно опонета нет. как мы сюда попали? )
 	// добавляем победителю одну выигранную игру, и 5 или 10 очков за партию (зависит от размера). Проигравшему просто одну игру
 	int win_ = FindUserInDB(Cli[idx].login);
-	//int win_score = users[win_][3].get<int>() + Cli[idx].field_size;
-
-	int win_score = users["Users"][win_][3].get<int>() + Cli[idx].field_size;
-
+	int win_score = users["Users"][win_][3].get<int>() + Cli[idx].field_size; // даем столько очковЮ сколько размер поля.
 	int win_games = users["Users"][win_][4].get<int>() + 1;
-	users["Users"][win_][3] = win_score;
-	users["Users"][win_][4] = win_games;
+	users["Users"][win_][3] = win_score;	users["Users"][win_][4] = win_games;
 
-	int lose_ = FindUserInDB(Cli[opponent_id].login); //["ivlord", "123", "17dec2020.4:15", 1000, 20]
-	int lose_score = (sur_win)?0: (users["Users"][lose_][3].get<int>() + 1); // одно поощрительное очко проигравшему
-	int lose_games = users["Users"][lose_][4].get<int>() + 1;
-	users["Users"][lose_][3] = lose_score;
-	users["Users"][lose_][4] = lose_games;
+	int lose_ = FindUserInDB(Cli[opponent_id].login);							//["ivlord", "123", "17dec2020.4:15", 1000, 20]
+	int lose_score = (sur_win) ? 0 : (users["Users"][lose_][3].get<int>() + 1); // одно поощрительное очко проигравшему
+	int lose_games = users["Users"][lose_][4].get<int>()				  + 1;
+	users["Users"][lose_][3] = lose_score;	users["Users"][lose_][4] = lose_games;
 
-	ConfigSave(users); // сохраняем данные в конфиге. ничё не проверяем :))
+	ConfigSave(users);															// сохраняем данные в конфиге. ничё не проверяем
 
 	// отдаем игровой слот назад - чистим его. Отключаем игроков от сети.
-	_gm->status = EMPTY; _gm->fld_size = true;
-	_gm->gm_users[0] = ERRor; _gm->gm_users[1] = ERRor;
 
-	Cli[idx].pfld.clear_field(); Cli[idx].ofld.clear_field();
-	Cli[opponent_id].pfld.clear_field(); Cli[opponent_id].ofld.clear_field();
-	Cli[idx].pfld.ships.clear(); Cli[idx].ofld.ships.clear();
-	Cli[idx].in_game = false;	Cli[opponent_id].in_game = false;
-	Cli[idx].gm = nullptr;		Cli[opponent_id].gm = nullptr;
+	_gm->Clean_Self();
+	Cli[idx		   ].CleanClient(false); Cli[opponent_id].CleanClient(false);
 
-	if (!SendShort(idx, s_SendScore) or !SendLong(idx, win_score, win_games, 60))		    return false; 	// 15-поменять на количество ходов в игре
+	if (!SendShort(idx, s_SendScore) or !SendLong(idx, win_score, win_games, 60))    return false; 	// 15-поменять на количество ходов в игре
 
-	if (sur_win){
-		if (!SendShort(idx, s_SurrenderWin)) return false;
-	}
+	if (sur_win) {	if (!SendShort(idx, s_SurrenderWin)) return false;	}
 	else
 	{
 		if (!SendShort(opponent_id, s_SendScore) or !SendLong(opponent_id, lose_score, lose_games, 60)) return false;
@@ -604,7 +562,6 @@ bool EndGame(int idx, int sur_win=0) { // idx - индекс победител�
 }
 
 //EMPTY - 1, WAITING 1, RUNNING 2
-
 bool SendMsg(std::string& msg, int idx) {
 	int msg_size = msg.size();
 	if (send(Cli[idx].con, (char*)&msg_size, sizeof(int), NULL) != SOCKET_ERROR) {
@@ -644,7 +601,6 @@ login_password GetLoginData(int idx) {
 	ReadLenString(idx, LP.P);
 	return LP;
 }
-
 bool ProcessPacket(int idx, Packet packettype) {
 	int msg_size;
 
@@ -655,15 +611,15 @@ bool ProcessPacket(int idx, Packet packettype) {
 		if (Cli[idx].in_game or Cli[idx].need_login or (percent < 0) or (percent > 100)) { // %-неправильно введен ИЛИ не залогинен или в игре уже. установка корабля невозможна
 			if (!SendShort(idx, s_SetGroundError)) { return false; }
 		}
-		Cli[idx].ground_index		= percent;
-		Cli[idx].pfld.ground_index	= percent;
-		Cli[idx].ofld.ground_index	= percent;
+		Cli[idx].ground_index = percent;
+		Cli[idx].pfld.ground_index = percent;
+		Cli[idx].ofld.ground_index = percent;
 		Cli[idx].pfld.gen_fileld();
 		Cli[idx].pfld.clear_field();
 		Cli[idx].ofld.clear_field();
 
 		if (!Cli[idx].pfld.send_self_no_ships(idx)) { return false; }
-		std::cout << "#" << idx << ": Ground idx changed to:" << percent << ". Field has been sent.3 " <<"\n";
+		std::cout << "#" << idx << ": Ground idx changed to:" << percent << ". Field has been sent.3 " << "\n";
 		break;
 	}
 	case p_DelShip: {
@@ -717,7 +673,7 @@ bool ProcessPacket(int idx, Packet packettype) {
 				if (!SendShort(idx, s_UnreadyFailInGame)) return false; break; // отсылаем ошибку и выходим
 			}
 			// опонента нет пока можно выйти из игры.
-			Cli[idx].gm->status		 = EMPTY;
+			Cli[idx].gm->status = EMPTY;
 			Cli[idx].gm->gm_users[0] = ERRor; Cli[idx].gm->gm_users[1] = ERRor;
 			Cli[idx].gm = nullptr;
 			if (!SendShort(idx, s_YouAreNotInGame)) return false;
@@ -736,8 +692,8 @@ bool ProcessPacket(int idx, Packet packettype) {
 			if (new_game == ERRor) { // не удалось найти новую игру: слоты заняты или нет подходящего размера поля. редкий случай
 				SendShort(idx, s_FailedToFindGame); return false;
 			}
-			
-			if (!Gm[new_game].AddPlayer(idx, Cli[idx].field_size == 10)) { return false;}
+
+			if (!Gm[new_game].AddPlayer(idx, Cli[idx].field_size == 10)) { return false; }
 
 			Cli[idx].gm = &Gm[new_game];
 			Cli[idx].in_game = true;
@@ -772,7 +728,8 @@ bool ProcessPacket(int idx, Packet packettype) {
 			Cli[idx].ofld.field_size = (packettype == p_SetFieldSize10) ? 10 : 5;
 			Cli[idx].pfld.gen_fileld();
 			if (Cli[idx].pfld.send_self_no_ships(idx)) {
-				std::cout << "Field has been sent.1" << "\n"; return true;}
+				std::cout << "Field has been sent.1" << "\n"; return true;
+			}
 
 
 			if (!Cli[idx].pfld.send_self_no_ships(idx, s_SendOponentField)) { return false; }
@@ -816,7 +773,7 @@ bool ProcessPacket(int idx, Packet packettype) {
 
 			if (Cli[idx].in_game) {
 				int opponent_id = ((Cli[idx].gm->gm_users[0] == idx) ? Cli[idx].gm->gm_users[1] : Cli[idx].gm->gm_users[0]);
-				if (opponent_id != ERRor) { EndGame(opponent_id, 1);	}
+				if (opponent_id != ERRor) { EndGame(opponent_id, 1); }
 			}
 			//Cli[idx].CleanClient(); 	//Cli[idx].need_login = true;
 		}
@@ -860,7 +817,7 @@ bool ProcessPacket(int idx, Packet packettype) {
 		}
 		break;
 	}
-	case p_Login: { // логин Клиента
+	case p_Login: {					// логин Клиента
 		int login_size;
 		if (!REC(idx, recv(Cli[idx].con, (char*)&login_size, sizeof(int), NULL))) { Cli[idx].idx = -1; return true; } // длина login НЕ контролируется
 		char* n_login = new char[login_size + 1]; n_login[login_size] = '\0';
@@ -936,13 +893,12 @@ bool ProcessPacket(int idx, Packet packettype) {
 		if ((turn_res == Wounded) or (turn_res == Killed) or (turn_res == WinGameShot)) { // отмечаем, если попали
 			Cli[idx].ofld.set_cell_type(x, y, Broken_ship);
 
-			cell* _cell = Cli[opponent_id].pfld.get_cell(x, y); // ссылка не ту же клетку в pfld опонента
+			cell* _cell = Cli[opponent_id].pfld.get_cell(x, y);		// ссылка не ту же клетку в pfld опонента
 			ship shp = Cli[opponent_id].pfld.ships[_cell->ship_id]; // получаем корабль в pfld.ships противника
-			int shp_type = shp._type; // получаем, что там за корабль
+			int shp_type = shp._type;								// получаем, что там за корабль
 
 			int _x, _y; // крестики ставим ТОЛЬКО на полях ofld
-			int ex = shp._x;
-			int ey = shp._y;
+			int ex = shp._x; int ey = shp._y;
 
 			if (turn_res != Wounded) { // т.е. потоплен и нужно крестики по кругу ставить и по всем клеткам корабля
 				for (int i = 0; i < shp.len; i++) {
@@ -950,35 +906,31 @@ bool ProcessPacket(int idx, Packet packettype) {
 					Cli[idx].ofld.SetCrosses(_x, _y, true, opponent_id, idx);
 				} // если корабль потоплен, то по кругу корабля.
 			}
-			else {
-				Cli[idx].ofld.SetCrosses(x, y, false, opponent_id, idx); // если ранен крестики по диагоналям только
-			}
-
-
+			else { Cli[idx].ofld.SetCrosses(x, y, false, opponent_id, idx); } // если ранен крестики по диагоналям только
 
 			if (!SendShort(idx, s_SendCell_O) or (!SendLong(idx, x, y, Broken_ship))) return false;					// ofld idx клиента
 			if (!SendShort(opponent_id, s_SendCell_P) or (!SendLong(opponent_id, x, y, Broken_ship))) return false; // ofld idx клиента
-			if (!SendShort(opponent_id, s_YouWait)) return false;													// ход опонента
-			if (!SendShort(idx, s_YourTurn))		return false;													// ход опонента
+			if (!SendShort(opponent_id, s_YouWait))  return false;					// опонента промазал и ждет
+			if (!SendShort(idx,			s_YourTurn)) return false;					// ход клиента
 		}
-		else {
-			Cli[idx].ofld.set_cell_type(x, y, Hit); // Hit на своем запасном поле
-			Cli[idx].gm->SwapTurn();				// смена хода
-			if (!SendShort(idx, s_SendCell_O) or (!SendLong(idx, x, y, Hit))) return false;					// ofld idx клиента
-			if (!SendShort(opponent_id, s_SendCell_P) or (!SendLong(opponent_id, x, y, Hit))) return false; // ofld idx клиента
-			if (!SendShort(opponent_id, s_YourTurn)) return false;											// ход опонента
-			if (!SendShort(idx, s_YouWait))			 return false;											// ход опонента
-		} // расставляем крестики, регулируем, кто ходит
+		else {	//Field																	// расставляем крестики, регулируем, кто ходит
+			if (Cli[idx].ofld.Field[y][x].type!=Broken_ship){
+				Cli[idx].ofld.set_cell_type(x, y, Hit);									// Hit на своем запасном поле
+				if (!SendShort(idx,			s_SendCell_O) or (!SendLong(idx,		 x, y, Hit))) return false; // ofld idx клиента
+				if (!SendShort(opponent_id, s_SendCell_P) or (!SendLong(opponent_id, x, y, Hit))) return false; // pfld опонента
+			}
+			Cli[idx].gm->SwapTurn();												// смена хода
+			if (!SendShort(opponent_id, s_YourTurn)) return false;					// ход опонента
+			if (!SendShort(idx,			s_YouWait))	 return false;					// клиент промазал и ждет
+		}
 
 		// конец игры. закрываем игру. насчитываем очки
-		if (turn_res == WinGameShot) {
-			if (!EndGame(idx)) return false;
+		if (turn_res == WinGameShot) {	if (!EndGame(idx)) return false;
 			break;
 		}
-
 		return true;
 	}
-	case p_ChatMessage: { int msg_size;
+	case p_ChatMessage: { int msg_size; // так и не успел доделать общий чат. хотя тут немного осталось
 		if (!REC(idx, recv(Cli[idx].con, (char*)&msg_size, sizeof(int), NULL))) return false;
 		std::cout << "P#" << packettype << ":" << msg_size << " bytes\n";
 		char* msg = new char[msg_size + 1]; msg[msg_size] = '\0';
@@ -1006,15 +958,14 @@ void ClientHandler(int idx) {
 	std::cout << "\n >connection closed for: " << idx << ", WSA_err=" << WSAGetLastError() << "\n===============\n\n";
 	closesocket(Cli[idx].con); // закрывает соединение для Клиента  // delete Cli[cli_index]; // не обязательно
 
-	if (Cli[idx].in_game) {
+	if (Cli[idx].in_game) { // отдает победу опоненту в случае выхода противника
 		int opponent_id = ((Cli[idx].gm->gm_users[0] == idx) ? Cli[idx].gm->gm_users[1] : Cli[idx].gm->gm_users[0]);
 		if (opponent_id != ERRor) { EndGame(opponent_id, 2); }
 	}
-
 	Cli[idx].idx = EMPTY;	   // освобождает слот в списке соединений=>разрывает while, close thread&exit
 }
 
-void GameServer() {
+void GameServer() { // not used yet
 	int max_games = max_players_on_server / 2;
 	int gm_cnt = 0, plr_cnt = 0;
 	using namespace std::chrono_literals;
@@ -1027,52 +978,34 @@ void GameServer() {
 		}
 		for (int i = 0; i < max_players_on_server; i++) {
 			if (Cli[i].idx != EMPTY) { plr_cnt++; }
-		}
-		//std::cout << "Connected: "<< plr_cnt << ", Active games: " << gm_cnt << "\n";
+		}		//std::cout << "Connected: "<< plr_cnt << ", Active games: " << gm_cnt << "\n";
 	}
 }
 
 std::ostream& operator<< (std::ostream& out, ships_left _ships) {
 	out << "ships: ";
-	for (int i = 0; i < 5; i++) {
-		out << _ships.ships[i] << " ";
-	}
-	out << "\n";
-	return out;
-}
+	for (int i = 0; i < 5; i++) {out << _ships.ships[i] << " ";	} out << "\n";
+	return out;}
 
 
 int main(int argc, char* argv[]) {
-
-	//return 0;
-
-	std::cout << "game :" << sizeof(game) << "\n\n";
-	std::cout << "field:" << sizeof(field) << "\n\n";
-	std::cout << "Cli  :" << sizeof(Cli) << "\n\n";
-	std::cout << "plr  :" << sizeof(plr) << "\n\n";
+	//srand(time(NULL));
 
 	if (!JsonRead(users)) { std::cout << "Ошибка. База данных повреждена. Сервер остановлен."; return 1; }
-
-	std::cout << "This copy R" << "" << "\n";
-	//srand(time(NULL));
 
 	WSAData wsaData;
 	int res = WSAStartup(MAKEWORD(2, 2), &wsaData); // WORD DLLVersion = MAKEWORD(2, 1);
 	if (res != NO_ERROR) {							// Ошибка запуска WSA
-		printf("WSAStartup failed: %d\n", WSAGetLastError()); WSACleanup();	exit(1);
-	}
+		printf("WSAStartup failed: %d\n", WSAGetLastError()); WSACleanup();	exit(1);}
 
-	SOCKADDR_IN addr;
-	int sizeofaddr = sizeof(addr);
+	SOCKADDR_IN addr; 	int sizeofaddr = sizeof(addr);
 	addr.sin_addr.s_addr = inet_addr(SERVER_IP.c_str());
 	addr.sin_port = htons(SERVER_PORT);
 	addr.sin_family = AF_INET;
 
 	SOCKET sListen = INVALID_SOCKET;
 	sListen = socket(AF_INET, SOCK_STREAM, NULL);  // IPPROTO_TCP
-	if (sListen == INVALID_SOCKET) {
-		printf("Socket creation error: %u\n", WSAGetLastError()); WSACleanup(); exit(1);
-	}
+	if (sListen == INVALID_SOCKET) {printf("Socket creation error: %u\n", WSAGetLastError()); WSACleanup(); exit(1);}
 
 	res = bind(sListen, (SOCKADDR*)&addr, sizeof(addr));
 	if (res == SOCKET_ERROR) { printf("Bind error %d\n", WSAGetLastError()); closesocket(sListen); WSACleanup(); exit(1); }
@@ -1081,7 +1014,7 @@ int main(int argc, char* argv[]) {
 	if (listen(sListen, SOMAXCONN) == SOCKET_ERROR) { printf("Listen fail error: %d\n", WSAGetLastError()); exit(1); }
 
 	SOCKET In_Connection = INVALID_SOCKET;
-	for (int i = 0; i < 100; i++) { Cli[i] = plr(INVALID_SOCKET); Cli[i].idx = -1; }
+	for (int i = 0; i < 100; i++) { Cli[i] = plr(INVALID_SOCKET); Cli[i].idx = ERRor; }
 
 	HANDLE MainGameProcess = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)GameServer, (LPVOID)(NULL), NULL, NULL);
 	int idx_new;
@@ -1091,103 +1024,25 @@ int main(int argc, char* argv[]) {
 		idx_new = FindFreeIndex();
 		if ((In_Connection == INVALID_SOCKET) or (idx_new == -1)) { // ошибка соединения сокета или нет свободного слота для нового сокета
 			printf("Accept connection failed. Error: %d\n", WSAGetLastError());
-			closesocket(In_Connection);	continue;
-		}					// закрываем сокет и продолжаем слушать входящие
+			closesocket(In_Connection);	continue;}					// закрываем сокет и продолжаем слушать входящие
 
 		char* ip = inet_ntoa(addr.sin_addr);						// определяем IP адрес Клиента на всякий случай.
 		printf("Accepted Connection for #%d, from : %s\n", idx_new, ip);
 
-		Cli[idx_new].con = In_Connection;							// создаем Class нового игрока
-		Cli[idx_new].idx = idx_new;
 		Cli[idx_new].CleanClient();
+		Cli[idx_new].con=In_Connection; Cli[idx_new].idx = idx_new; // создаем Class нового игрока
 
 		// создаем новый поток для обслуживания нового Клиента. В поток передаем только индекс слота Клиента
 		// на всякий случай сохраняем Tread id
 		HANDLE cc = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)ClientHandler, (LPVOID)(idx_new), NULL, NULL);
-	}	return 0; //system("pause");
-}
+	}
+return 0;}  //system("pause");
 //send only				// 10013 WSAEACCES		// 10055 WSAENOBUFS		// 10065 WSAEHOSTUNREACH
 // recv&send  WSAGetLastError()
 // 10004 WSAEINTR		// 10014 WSAEFAULT		// 10022 WSAEINVAL		// 10035 WSAEWOULDBLOCK	
 // 10036 WSAEINPROGRESS	// 10038 WSAENOTSOCK	// 10040 WSAEMSGSIZE	// 10045 WSAEOPNOTSUPP
 // 10050 WSAENETDOWN	// 10052 WSAENETRESET	// 10053 WSAECONNABORTED// 10054 WSAECONNRESET
 // 10057 WSAENOTCONN	// 10058 WSAESHUTDOWN	// 10060 WSAETIMEDOUT	// 10093 WSANOTINITIALISED		
-//cout << "\nadd cli:\n";
-//for (int idx = 0; idx < 100; idx++) {
-//	if (Cli[idx].idx!=-1) cout << "!" << Cli[idx].idx << "\n";
-//}
-//cout << "-----------------\n";
-//class gameD {
-//	int users[2];		// IDs законнектившихся пользователей
-//	int ground_index;	// выбранный пользователями процент суши
-//	bool fld_size;		// размер поля: true=10x10, false=5x5
-//public:
-//	field main_fld[2];
-//	field opp_fld[2];
-//
-//	gameD(int u_id_1, int u_id_2, int _ground_index = 50, bool _fld_size = true) {
-//		this->users[0] = u_id_1;			this->users[1] = u_id_2;
-//		this->ground_index = _ground_index;	this->fld_size = _fld_size;;
-//		this->main_fld[0] = field(ground_index, fld_size);
-//		this->main_fld[1] = field(ground_index, fld_size);
-//		this->opp_fld[0] = field(ground_index, fld_size);
-//		this->opp_fld[1] = field(ground_index, fld_size);
-//		main_fld[0].copy_self_no_ships(opp_fld[1]);
-//		main_fld[1].copy_self_no_ships(opp_fld[0]);
-//	}
-//private:
-//	field fld_no_ships(field fld) {
-//		field oponent_fld = fld;
-//		for (int y = 0; y < oponent_fld.field_size; y++) {
-//			for (int x = 0; x < oponent_fld.field_size; x++) {
-//				oponent_fld.set_cell(x, y, oponent_fld.get_cell(x, y)->grnd, Free);
-//			}
-//		}
-//		return oponent_fld;
-//	}
-//};
-// напрвляем сюда, после каждой операции recv: REC(cli_index, op_res, 1)
-// Возвращает:  REC(cli_index, ANY, -1) ==> 0			set	Cli[cli_index].error_cnt = 0
-//				REC(cli_index, ANY, 0)  ==> Cli[cli_index].error_cnt
-//				REC(cli_index, op_res==0 or <0 , 1)  ==> drop-ает, если превышено кол-во ошибок
-//                        или была критическая //10054
-//							==> -1 если drop-нуло или кол-во ошибок
 
-//login_password GetLoginData2(int idx) {
-//	login_password LP;
-//	int login_size;
-//	if (!REC(idx, recv(Cli[idx].con, (char*)&login_size, sizeof(int), NULL))) {
-//		Cli[idx].idx = EMPTY; return LP;
-//	} // длина login НЕ контролируется
-//	LP.L = new char[login_size + 1]; LP.L[login_size] = '\0';
-//	if (!REC(idx, recv(Cli[idx].con, LP.L, login_size, NULL))) {
-//		delete[] LP.L; Cli[idx].idx = EMPTY; return LP;
-//	}
-//	// Get password
-//	int password_size;
-//	if (!REC(idx, recv(Cli[idx].con, (char*)&password_size, sizeof(int), NULL))) {
-//		delete[] LP.L; Cli[idx].idx = -1; return LP;
-//	}
-//	LP.P = new char[password_size + 1]; LP.P[password_size] = '\0';
-//	if (!REC(idx, recv(Cli[idx].con, LP.P, password_size, NULL))) {
-//		delete[] LP.L; delete[] LP.P; Cli[idx].idx = -1;
-//	}
-//	return LP;}
-//int error_cnt = 0;	int max_errors = 10;
-
-//// шлем стрелявшему выстрел
-//if (!SendShort(idx, p_TurnRes)) return false;
-//if (send(Cli[idx].con, (char*)&turn_res, sizeof(turn_res), NULL) != sizeof(turn_res)) return false;
-//if (turn_res == Miss) Cli[idx].gm->SwapTurn(); // смена хода
-//// шлем опоненту выстрел
-//if (!SendShort(opponent_id, s_IncomingSoot)) return false; // тут перехват должен быть ИИ
-//if (send(Cli[opponent_id].con, (char*)&turn_res, sizeof(turn_res), NULL) != sizeof(turn_res)) return false;
-
-//crosses_map
-//for (int y = 0; y < 2; y++) {
-//	for (int x = 0; x < 4; x++) {
-//		std::cout << "(" << crosses_map[y][x].add_x << "," << crosses_map[y][x].add_y << ")  ";
-//	}
-//	std::cout << "\n";
-//}
-//std::cout << "\n";
+//_gm->status		= EMPTY;	_gm->gm_users[0] = ERRor;
+//_gm->fld_size	= true;		_gm->gm_users[1] = ERRor;

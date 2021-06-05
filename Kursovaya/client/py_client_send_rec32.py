@@ -37,7 +37,7 @@ S={
 "fieldsize":    10,
 "ground_index": 80,
 "res":          [0,0,-1],
-"game_end_result": "---",
+"game_end_result": "win",
 "s_WaitingOpponentJoin":False,
 }
 
@@ -148,8 +148,12 @@ def screen_server(**kargs):
             S["game_do_trun"]= False
             S["screens"][1].b8["state"] = "disabled"
             S["screens"][1].b8["text"] = "Ready"
+            print("==========================================================111")
             S["screens"][1].reset_self()
+            print("==========================================================222")
             S["screens"][1].getnewfield()
+            print("==========================================================333")
+
         elif S["current_screen"]==2:
             S["video_run"] = True
             #S["screens"][2].refresh()
@@ -157,7 +161,9 @@ def screen_server(**kargs):
         if S["current_screen"]==0:  S["video_run"] = True
         else:                       S["video_run"] = False
 
+        print("==========================================================444")
         S["screens"][ S["current_screen"] ].show()
+        print("==========================================================555")
     else:
         print("hello") #
         return
@@ -674,7 +680,9 @@ class EndWindow(object):
         S["video_run"] = False
         self.channel1.stop()
         self.channel2.stop()
-        self.thread.join()
+        S["video_run"]=False
+        #self.thread.join()
+
         print('hiding window=2')
         self.C.place(x=1000, y=0)
 
@@ -1034,10 +1042,10 @@ def main():
 
     root.protocol("WM_DELETE_WINDOW", on_closing)
     S["screens"]=[]
-    S["screens"].append(StartWindow(root))
-    S["screens"].append(PlayWindow(root))
+    #S["screens"].append(StartWindow(root))
+    #S["screens"].append(PlayWindow(root))
     S["screens"].append(EndWindow(root))
-    #S["screens"][-1].show()
+    S["screens"][-1].show()
 
     root.mainloop()
 
