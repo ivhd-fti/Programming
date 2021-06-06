@@ -148,11 +148,8 @@ def screen_server(**kargs):
             S["game_do_trun"]= False
             S["screens"][1].b8["state"] = "disabled"
             S["screens"][1].b8["text"] = "Ready"
-            print("==========================================================111")
             S["screens"][1].reset_self()
-            print("==========================================================222")
             S["screens"][1].getnewfield()
-            print("==========================================================333")
 
         elif S["current_screen"]==2:
             S["video_run"] = True
@@ -160,10 +157,7 @@ def screen_server(**kargs):
 
         if S["current_screen"]==0:  S["video_run"] = True
         else:                       S["video_run"] = False
-
-        print("==========================================================444")
         S["screens"][ S["current_screen"] ].show()
-        print("==========================================================555")
     else:
         print("hello") #
         return
@@ -193,7 +187,7 @@ Packet.s_RefreshField_O:    [[AT.read3i], [AT.run, field_build, {'field':1}]],
 Packet.p_Ok:                [[AT.prn, "Ok"], [AT.avc, "ok", "+++"]],
 Packet.p_Fail:              [[AT.prn, "Fail"], [AT.avc, "fail", True]],
 Packet.s_CantPlaceShipHere: [[AT.prn, "Невозможно установить корабль"], [AT.avc, "fail", "+++"]],
-Packet.s_SendShip:          [[AT.prn, "Корабль прошел проверку"], [AT.read3], [AT.avc, "fail", "---"]],
+Packet.s_SendShip:          [[AT.read3], [AT.avc, "fail", "---"]], # [AT.prn, "Корабль прошел проверку"],
 Packet.s_FailedToFindGame:  [[AT.prn, "Невозможно найти игру"], [AT.avc, "fail", "+++"], [AT.avc, "in_game", False] ],
 Packet.s_YouAreInGame:      [[AT.prn, "Вы в игре"], [AT.avc, {"fail":"---", "in_game":True, "ready":True}],
                             [AT.run, change_status, {'before':"Вы в игре. ", "clr":"green"}] ],
@@ -213,8 +207,8 @@ Packet.s_YouAreNotConnected:[[AT.prn, "Вы не залогинены."]],
 Packet.s_AccountWasDeleted: [[AT.prn, "Экаунт удален."]],
 Packet.s_AccountNotDeleted: [[AT.prn, "Невозможно удалить экаунт."]],
 Packet.s_SendServerData:    [[AT.prn, "Player List:"], [AT.ale, "playerlist"]],
-Packet.s_SendField:         [[AT.prn, "New Field:"],   [AT.ale, 0]],
-Packet.s_SendOponentField:  [[AT.prn, "New Oponent Field:"],  [AT.ale, 1]],
+Packet.s_SendField:         [[AT.ale, 0]], #[AT.prn, "New Field:"],
+Packet.s_SendOponentField:  [[AT.ale, 1]], #[AT.prn, "New Oponent Field:"],
 Packet.s_LoginFirst:        [[AT.prn, "Для этого необходимо залогиниться."]],
 Packet.s_FieldChangeRefuse: [[AT.prn, "Изменения поля невозможны"], [AT.avc, "fail", True]],
 Packet.s_UnreadyFailNoShips:[[AT.prn, "Не достаточно кораблей для игры"], [AT.avc, "fail", True]],
@@ -467,7 +461,7 @@ class Field():
 
     def build_self(self):
         global S
-        print('Field build self', self.ofld)
+        #print('Field build self', self.ofld)
         self.clean_field()
 
         self.size = len(S[0])//5 -1
@@ -519,7 +513,7 @@ class Field():
 
             if not any( [self.check_amount(i) for i in range(1,5)]  ):
 
-                print('all done')
+                print('Все корабли расставлены! Жмите "Готов"')
                 self.root.change_status(msg='Все корабли расставлены! Жмите "Готов"')
                 S["screens"][1].b8["state"]="normal"
                 return # все корабли стоят!!!!!!!!!!!!!!!!!!!!!

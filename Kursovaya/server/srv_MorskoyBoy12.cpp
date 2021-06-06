@@ -11,6 +11,8 @@
 #include <fstream>
 #include <chrono>
 #include <thread>
+#include <ctime>
+
 
 #define ERRor  -1
 #define EMPTY -1
@@ -94,7 +96,6 @@ enum Packet { //uint32_t
 };
 
 bool SendMsg(std::string&, int); bool SendShort(int, Packet); bool SendLong(int, int, int, int); int GetPfldCellType(int, int, int);
-void PrnFld(int);
 ///////////////////////////////////////////////////////////////////////////
 // Json Users Database
 bool ConfigSave(json& users_data) {
@@ -158,12 +159,13 @@ void DelUserFromDB(std::string login) {
 	}
 }
 // CELL
-enum cell_types { // 0b  ship_mask=1
+enum cell_types {	// 0b  ship_mask=1
 	Free = 0,		// 0 не занятая клетка
 	Ship,			// 1 неповрежденный корабль
 	Broken_ship,	// 2 поврежденный корабль
 	Cross = 4,		// 4 место куда не стреляли (Free), но нет смысла уже стрелять
-	Hit = 8			// 8 Место куда стреляли но не попали
+	Hit = 8,		// 8 Место куда стреляли но не попали
+	ErrCell = 128	// ошибка получения типа клетки
 };// Возможные типы клеток:
 class cell {
 public:
@@ -175,8 +177,8 @@ public:
 std::ostream& operator<< (std::ostream& out, cell& _cell) { out << ((_cell.grnd) ? "=" : "~") << _cell.type; return out; }
 
 // SHIP
-struct offset { int add_x; int add_y; }; // смещение (x,y) от головной клетки корабля
-struct ships_schem { int len; bool grnd; offset s[4]; }; // gnd-суша\вода, len-клеток, смещения на занятую клетку
+struct offset { int add_x; int add_y; };					// смещение (x,y) от головной клетки корабля, которая считается координатой корабля
+struct ships_schem { int len; bool grnd; offset s[4]; };	// len-занимет клеток , суша\вода gnd-true, {смещения на занятую клетку}
 ships_schem ship_list[22] = {
 	1, false, {{0,0}, {0,0}, {0,0}, {0,0}},		//0 1-палубный вода
 	1, true,  {{0,0}, {0,0}, {0,0}, {0,0}},		//1 1-палубный суша
@@ -202,16 +204,13 @@ ships_schem ship_list[22] = {
 	4, true,  {{0,0}, {1,0}, {0,-1}, {0,-2}},	//20
 	4, true,  {{0,0}, {0,1}, {1,0}, {2,0}},		//21
 };
+
 struct ship { int _type = ERRor; int _x; int _y; int len;  int idx; cell* cells[4]; }; //ship_list[_type].len
-std::ostream& operator<< (std::ostream& out, ship& _ship) {
-	out << "Ship type: " << _ship._type << " [" << _ship._x << "," << _ship._y << "] " << _ship.len << ", idx:" << _ship.idx << ", cells>> ";
-	for (int i = 0; i < _ship.len; i++) { std::cout << *_ship.cells[i] << " "; }	std::cout << std::endl;	return out;
-}
 struct ships_left { int ships[5] = { ERRor,0,0,0,0 }; };	// ответ по количеству живых кораблей
 
 enum shot_result { Miss = 0, Wounded, Killed, WrongShot, WinGameShot, LoseGameShot }; // результаты выстрела
 ships_left fld_amounts[2] = { { ERRor,2,2,0,0 } , { ERRor,4,3,2,1 } }; // количество кораблей на полях 5х5 и 10х10
-
+// {{смещения координат крестиков по диагоналям-4шт}, {координаты по вертикали и горизонтали} }
 offset crosses_map[2][4] = { { {-1,-1}, {-1,1}, {1,-1}, {1,1} }, { {0,1}, {0,-1}, {1,0}, {-1,0} } };
 
 // FIELD
@@ -230,17 +229,24 @@ public:
 	bool not_in_field(int x, int y) {
 		return !((x >= 0) and (y >= 0) and (x < field_size) and (y < field_size));
 	}
-	int alive(int idx) { // подсчитывает сколько осталось живых клеток корабля
+	int alive(int idx) { // подсчитывает сколько осталось живых клеток корабля у корбля с индексом idx
 		if (idx > (int)ships.size()) return 0;
 		int res = 0;
 		for (int i = 0; i < ship_list[ships[idx]._type].len; i++) {
 			if (ships[idx].cells[i]->type == Ship) res++;
 		} return res;
 	}
-	ships_left have_ships() {	// по основноу поля игрока ships_left { int ships[5] = {ERRor,1-шек,2-шек,3,4}; }
-		ships_left res;			// возвращает кол-во кораблей по палубности
+
+	bool field_have_any_alive() {
 		for (uint32_t i = 0; i < ships.size(); i++) {
-			if (alive(i)) { res.ships[ships[i].len]++; }
+			if (this->alive(i)) { return true; }		// нашли чё-то живое
+		} return false;							// all dead
+	}
+
+	ships_left have_ships() {	// по основному поля игрока ships_left { int ships[5] = {ERRor,1-шек,2-шек,3,4}; }
+		ships_left res;			// возвращает кол-во кораблей по палубности // будет нужна для AI
+		for (uint32_t i = 0; i < ships.size(); i++) {
+			if (this->alive(i)) { res.ships[ships[i].len]++; }
 		}return res;
 	}
 	ships_left need_ships() {
@@ -249,11 +255,7 @@ public:
 			if (alive(i)) { res.ships[ships[i].len]--; }
 		} return res;
 	}
-	bool field_have_any_alive() {
-		for (uint32_t i = 0; i < ships.size(); i++) {
-			if (alive(i)) { return true; }		// нашли чё-то живое
-		} return false;							// all dead
-	}
+
 	ship check_create_ship(int _type, int x, int y) {
 		// возвращает объект ship: ship._type = ERRor, если нельзя поставить или real type, если можно
 		int _x, _y; ship new_ship;
@@ -317,13 +319,18 @@ public:
 		}
 		return res;
 	}
-	ship print_ship(int idx) {
-		std::cout << "type:" << ships[idx]._type << "\n"; return ships[idx];
-	}
+	
 	void set_cell_type(int x, int y, cell_types _type) {
 		if (not_in_field(x, y)) return;
 		Field[y][x].type = _type;
 	}
+	cell_types get_cell_type(int x, int y) {
+		return ( (not_in_field(x, y))? ErrCell : Field[y][x].type);
+	}
+	int get_cell_ship_id(int x, int y) {
+		return Field[y][x].ship_id; // тут уже не делаем проверку на вылет за пределы поля - уже делали (просто помним об этом)
+	}
+
 	void set_cell(int x, int y, bool _grnd, cell_types _type) {
 		// установить новые значения для клетки поля
 		if (not_in_field(x, y)) return;
@@ -334,22 +341,22 @@ public:
 		if (not_in_field(x, y)) return nullptr;
 		cell* tmp = &Field[y][x]; return tmp;
 	}
+	
 	shot_result shot(int x, int y) {
 		if (not_in_field(x, y)) return WrongShot;
-		cell* _cell = this->get_cell(x, y);						// указатель на клетку (x, y)
-		cell_types ald_cell_type = _cell->type; shot_result ret_result = Miss;
-
-		this->print_field(); std::cout << "\n-------------\n";
-
+		shot_result ret_result = Miss;
+		cell_types ald_cell_type = this->get_cell_type(x,y); 
 		switch (ald_cell_type) {								// попали в Hit, Broken_ship - ignore
-		case Free:  {}											// сваливание на Cross, т.к. одинаковый результат хода
-		case Cross: { this->set_cell(x, y, _cell->grnd, Hit); break; }
-		case Ship:  {
-			this->set_cell(x, y, _cell->grnd, Broken_ship);
-			return ((this->alive(_cell->ship_id)) ? Wounded : ((this->field_have_any_alive())? Killed : WinGameShot));}
-		}	return ret_result; // Miss или Wounded/Killed. x,y есть, т.е. и сам ship в клетке есть
+		case Free: {}											// сваливание на Cross, т.к. одинаковый результат хода
+		case Cross: { set_cell_type(x, y, Hit		 ); break; }
+		case Ship:  { set_cell_type(x, y, Broken_ship);
+			// сколько живых клеток (у корабля с id из клетки) >0 => Wonded иначе смотрим, осталсись ли вообще живые корабли. 
+			// если да=> Killed  иначе WinGameShot-все мертвы
+			return ((this->alive(get_cell_ship_id(x,y))) ? Wounded : ((this->field_have_any_alive()) ? Killed : WinGameShot)); }
+		}	
+		return ret_result; // Miss или Wounded/Killed. x,y есть, т.е. и сам ship в клетке есть
 	}
-
+	
 	bool send_self_no_ships(int idx, Packet pack = s_SendField) {
 		json snd_fld = json::array(); //json::object()
 		for (int y = 0; y < field_size; y++) {
@@ -370,7 +377,7 @@ public:
 
 		if (not_in_field(x, y)) return;
 		if ((Field[y][x].type != Ship) and (Field[y][x].type != Broken_ship)) return; // если тут уже что-то стоит (клетка не свободна), то крестика не нужно
-		
+
 		int _x, _y;									  // full=true, ставит ещё и вертикальным крестом
 		//offset crosses_map[2][4] = { { {-1,-1}, {-1,1}, {1,-1}, {1,1} }, { {0,1}, {0,-1}, {1,0}, {-1,0} } };
 		for (int fulls = 0; fulls < 2; fulls++) { // цикл по двум схемам крестико: диагональ и КРЕСТ
@@ -389,14 +396,7 @@ public:
 			if (!full) break; // полная обвязка крестиками не нужна значит
 		}
 	}
-	void print_field() {
-		for (int y = 0; y < 10; y++) {
-			std::cout << "\n";
-			for (int x = 0; x < 10; x++) {
-				std::cout << Field[y][x] << " ";
-			}
-		}
-	}
+
 	// просматривает соседние клетки и рекомендует какой тип территорри поставить
 	bool fld_count_around(int x, int y) {
 		int gnd_cnt = 0; int wtr_cnt = 0;
@@ -423,8 +423,11 @@ public:
 				if ((res and total_ground > 0) or (!res and total_water <= 0)) { gnd_type_set = true; total_ground--; }
 				else { gnd_type_set = false; total_water--; }
 				Field[y][x] = cell(gnd_type_set);
-			}}
+			}
+		}
 	}
+	
+	ship print_ship(int idx) { std::cout << "type:" << ships[idx]._type << "\n"; return ships[idx]; } // для отладки
 };
 
 // GAME
@@ -442,7 +445,8 @@ public:
 	void ReRoll() { whos_turn = rand() % 2; }					// определяем, кто первый ходит
 	int whos_wait() { return ((whos_turn == 1) ? 0 : 1); }
 	int HasFreePlace() {										// В игре есть свободное место? ==>index свободного места или ERRor (-1)
-		return (gm_users[0] == EMPTY) ? 0 : ((gm_users[1] == EMPTY) ? 1 : ERRor);}
+		return (gm_users[0] == EMPTY) ? 0 : ((gm_users[1] == EMPTY) ? 1 : ERRor);
+	}
 	bool MyTurn(int idx) {										// проверяет сейчас ход idx игрока?
 		return ((status == RUNNING) and (gm_users[whos_turn] == idx));
 	}
@@ -451,7 +455,7 @@ public:
 	}
 	int OponentID(int idx) {									// возвращает id опонента
 		if (ThisPlayerInThisGame(idx)) {
-			if      ((gm_users[0] != ERRor) and (gm_users[0] != idx)) return gm_users[0];
+			if ((gm_users[0] != ERRor) and (gm_users[0] != idx)) return gm_users[0];
 			else if ((gm_users[1] != ERRor) and (gm_users[1] != idx)) return gm_users[1];
 		} return ERRor;											// ==> ERRor, если игрок вообще тут не играет
 	}
@@ -461,29 +465,22 @@ public:
 			int plr_pos = this->HasFreePlace();
 			if (plr_pos != ERRor) {
 				this->gm_users[plr_pos] = idx;
-				this->fld_size			= _fld_size;
-				this->status			= (this->status == EMPTY) ? WAITING : RUNNING;
+				this->fld_size = _fld_size;
+				this->status = (this->status == EMPTY) ? WAITING : RUNNING;
 
 				if (this->status == RUNNING) {					// инициализация старта игры
 					this->ReRoll();								// жеребьёвка первого хода
-					if (!SendShort(gm_users[whos_turn],   s_YourTurn)) return false;
+					if (!SendShort(gm_users[whos_turn], s_YourTurn)) return false;
 					if (!SendShort(gm_users[whos_wait()], s_YouWait))  return false;
-
-					PrnFld(this->gm_users[0]);
-					PrnFld(this->gm_users[1]);
-
 				}
 			}
 		}
 		return true;
 	}
-
-	void Clean_Self(){
-		this->status   = EMPTY;	this->gm_users[0] = ERRor;
+	void Clean_Self() {
+		this->status = EMPTY;	this->gm_users[0] = ERRor;
 		this->fld_size = true;	this->gm_users[1] = ERRor;
 	}
-
-
 };
 game Gm[max_games_on_server];
 
@@ -491,9 +488,9 @@ game Gm[max_games_on_server];
 
 class plr { //uint_fast16_t
 public:
-	int idx			= EMPTY;								// индекс в базе законнектившихся
+	int idx = EMPTY;								// индекс в базе законнектившихся
 	bool need_login = true;									// Основные состояния клиента: залогинен ли или просто законнекчен
-	bool in_game	= false;								// уже в игре
+	bool in_game = false;								// уже в игре
 
 	int field_size = 10, ground_index = 50;					// Параметры игрового поля: получаются от клиента
 
@@ -511,27 +508,21 @@ public:
 		return (!need_login and (in_game) and (gm != nullptr) and (gm->MyTurn(plr_idx)));
 	}
 	void CleanClient(bool disconnect = true) {
-		if (disconnect) { this->need_login = true; this->login = "";}
-		this->in_game			= false;
-		this->gm				= nullptr;
-		this->battles			= 0;	
-		this->score				= 0; 
-		this->pfld.clear_field(); 
+		if (disconnect) { this->need_login = true; this->login = ""; }
+		this->in_game = false;
+		this->gm = nullptr;
+		this->battles = 0;
+		this->score = 0;
+		this->pfld.clear_field();
 		this->ofld.clear_field();
-		this->field_size		= 10;
-		this->pfld.field_size	= 10; 
-		this->ofld.field_size	= 10;
+		this->field_size = 10;
+		this->pfld.field_size = 10;
+		this->ofld.field_size = 10;
 		this->pfld.ships.clear();
 		this->ofld.ships.clear();
 	}
 };
 plr Cli[max_players_on_server];
-
-void PrnFld(int idx) {
-	std::cout << "\n\nField for #" << idx << "\n";
-	Cli[idx].pfld.print_field();
-	std::cout << "\n--------------------------\n";
-}
 
 int GetPfldCellType(int idx, int x, int y) {
 	return Cli[idx].pfld.Field[y][x].type;
@@ -546,10 +537,10 @@ int  FindFreeGame(bool game_size) {			// возвращает или игру в
 	int res = ERRor;	int free = ERRor;	// совпадает размер поля игроков. Или просто пустую игру, в которой игрок будет первым
 	for (int i = 0; i < max_games_on_server; i++) {
 		if (Gm[i].status == EMPTY) { free = i; }
-		if ((Gm[i].status == WAITING) and (Gm[i].fld_size == game_size)) {res = i; break;}	}
+		if ((Gm[i].status == WAITING) and (Gm[i].fld_size == game_size)) { res = i; break; }
+	}
 	return ((res == ERRor) ? free : res);	// если не нашлось игры с одним игроком, то новую открывает или ERRor, если нет свободного слота (что вряд ли возможно)
 }
-
 bool EndGame(int idx, int sur_win = 0) {	// idx - индекс победителя
 	game* _gm = Cli[idx].gm;
 
@@ -564,7 +555,7 @@ bool EndGame(int idx, int sur_win = 0) {	// idx - индекс победите�
 
 	int lose_ = FindUserInDB(Cli[opponent_id].login);							//["ivlord", "123", "17dec2020.4:15", 1000, 20]
 	int lose_score = (sur_win) ? 0 : (users["Users"][lose_][3].get<int>() + 1); // одно поощрительное очко проигравшему
-	int lose_games = users["Users"][lose_][4].get<int>()				  + 1;
+	int lose_games = users["Users"][lose_][4].get<int>() + 1;
 	users["Users"][lose_][3] = lose_score;	users["Users"][lose_][4] = lose_games;
 
 	ConfigSave(users);															// сохраняем данные в конфиге. ничё не проверяем
@@ -572,11 +563,11 @@ bool EndGame(int idx, int sur_win = 0) {	// idx - индекс победите�
 	// отдаем игровой слот назад - чистим его. Отключаем игроков от сети.
 
 	_gm->Clean_Self();
-	Cli[idx		   ].CleanClient(false); Cli[opponent_id].CleanClient(false);
+	Cli[idx].CleanClient(false); Cli[opponent_id].CleanClient(false);
 
 	if (!SendShort(idx, s_SendScore) or !SendLong(idx, win_score, win_games, 60))    return false; 	// 15-поменять на количество ходов в игре
 
-	if (sur_win) {	if (!SendShort(idx, s_SurrenderWin)) return false;	}
+	if (sur_win) { if (!SendShort(idx, s_SurrenderWin)) return false; }
 	else
 	{
 		if (!SendShort(opponent_id, s_SendScore) or !SendLong(opponent_id, lose_score, lose_games, 60)) return false;
@@ -619,6 +610,7 @@ int  ReadLenString(int idx, char*& txt) {// читает от клиента: in
 	}
 	return txt_size;
 }
+
 struct login_password { bool res = false; char* L; char* P; };
 login_password GetLoginData(int idx) {
 	login_password LP;
@@ -626,6 +618,7 @@ login_password GetLoginData(int idx) {
 	ReadLenString(idx, LP.P);
 	return LP;
 }
+
 bool ProcessPacket(int idx, Packet packettype) {
 	int msg_size;
 
@@ -912,9 +905,6 @@ bool ProcessPacket(int idx, Packet packettype) {
 		if (Cli[opponent_id].idx == ERRor)	return false;	// противник отпал с сервера?
 		if (Cli[opponent_id].need_login)	return false;	// чё-то противник не залогинен вообще?
 
-		PrnFld(idx);
-		PrnFld(opponent_id);
-
 		shot_result turn_res = Cli[opponent_id].pfld.shot(x, y); //Miss/Wounded/Killed/WinGameShoot
 
 		// отмечаем событие на своем запасном поле (поле опонента)
@@ -939,21 +929,22 @@ bool ProcessPacket(int idx, Packet packettype) {
 			if (!SendShort(idx, s_SendCell_O) or (!SendLong(idx, x, y, Broken_ship))) return false;					// ofld idx клиента
 			if (!SendShort(opponent_id, s_SendCell_P) or (!SendLong(opponent_id, x, y, Broken_ship))) return false; // ofld idx клиента
 			if (!SendShort(opponent_id, s_YouWait))  return false;					// опонента промазал и ждет
-			if (!SendShort(idx,			s_YourTurn)) return false;					// ход клиента
+			if (!SendShort(idx, s_YourTurn)) return false;					// ход клиента
 		}
 		else {	//Field																	// расставляем крестики, регулируем, кто ходит
-			if (Cli[idx].ofld.Field[y][x].type!=Broken_ship){
+			if (Cli[idx].ofld.Field[y][x].type != Broken_ship) {
 				Cli[idx].ofld.set_cell_type(x, y, Hit);									// Hit на своем запасном поле
-				if (!SendShort(idx,			s_SendCell_O) or (!SendLong(idx,		 x, y, Hit))) return false; // ofld idx клиента
+				if (!SendShort(idx, s_SendCell_O) or (!SendLong(idx, x, y, Hit))) return false; // ofld idx клиента
 				if (!SendShort(opponent_id, s_SendCell_P) or (!SendLong(opponent_id, x, y, Hit))) return false; // pfld опонента
 			}
 			Cli[idx].gm->SwapTurn();												// смена хода
 			if (!SendShort(opponent_id, s_YourTurn)) return false;					// ход опонента
-			if (!SendShort(idx,			s_YouWait))	 return false;					// клиент промазал и ждет
+			if (!SendShort(idx, s_YouWait))	 return false;					// клиент промазал и ждет
 		}
 
 		// конец игры. закрываем игру. насчитываем очки
-		if (turn_res == WinGameShot) {	if (!EndGame(idx)) return false;
+		if (turn_res == WinGameShot) {
+			if (!EndGame(idx)) return false;
 			break;
 		}
 		return true;
@@ -1012,19 +1003,53 @@ void GameServer() { // not used yet
 
 std::ostream& operator<< (std::ostream& out, ships_left _ships) {
 	out << "ships: ";
-	for (int i = 0; i < 5; i++) {out << _ships.ships[i] << " ";	} out << "\n";
-	return out;}
+	for (int i = 0; i < 5; i++) { out << _ships.ships[i] << " "; } out << "\n";
+	return out;
+}
+std::ostream& operator<< (std::ostream& out, ship& _ship) {
+	out << "Ship type: " << _ship._type << " [" << _ship._x << "," << _ship._y << "] " << _ship.len << ", idx:" << _ship.idx << ", cells>> ";
+	for (int i = 0; i < _ship.len; i++) { std::cout << *_ship.cells[i] << " "; }	std::cout << std::endl;	return out;
+}
+
+
+
+//template<typename T>
+//std::string toString(const T& t) {
+//	std::ostringstream oss;
+//	oss << t;
+//	return oss.str();
+//}
+
+//template<typename T>
+//T fromString(const std::string& s) {
+//	std::istringstream stream(s);
+//	T t;
+//	stream >> t;
+//	return t;
+//}
 
 
 int main(int argc, char* argv[]) {
 	//srand(time(NULL));
+
+	time_t curr_time;
+	curr_time = time(NULL);
+
+	//char* tm = ctime(&curr_time);
+	//std::string ss = std::string(tm);
+	//std::cout << "Today is : " << ss;
+
+	//std::cout << toString(curr_time);
+
+	//return 0;
 
 	if (!JsonRead(users)) { std::cout << "Ошибка. База данных повреждена. Сервер остановлен."; return 1; }
 
 	WSAData wsaData;
 	int res = WSAStartup(MAKEWORD(2, 2), &wsaData); // WORD DLLVersion = MAKEWORD(2, 1);
 	if (res != NO_ERROR) {							// Ошибка запуска WSA
-		printf("WSAStartup failed: %d\n", WSAGetLastError()); WSACleanup();	exit(1);}
+		printf("WSAStartup failed: %d\n", WSAGetLastError()); WSACleanup();	exit(1);
+	}
 
 	SOCKADDR_IN addr; 	int sizeofaddr = sizeof(addr);
 	addr.sin_addr.s_addr = inet_addr(SERVER_IP.c_str());
@@ -1033,7 +1058,7 @@ int main(int argc, char* argv[]) {
 
 	SOCKET sListen = INVALID_SOCKET;
 	sListen = socket(AF_INET, SOCK_STREAM, NULL);  // IPPROTO_TCP
-	if (sListen == INVALID_SOCKET) {printf("Socket creation error: %u\n", WSAGetLastError()); WSACleanup(); exit(1);}
+	if (sListen == INVALID_SOCKET) { printf("Socket creation error: %u\n", WSAGetLastError()); WSACleanup(); exit(1); }
 
 	res = bind(sListen, (SOCKADDR*)&addr, sizeof(addr));
 	if (res == SOCKET_ERROR) { printf("Bind error %d\n", WSAGetLastError()); closesocket(sListen); WSACleanup(); exit(1); }
@@ -1052,19 +1077,21 @@ int main(int argc, char* argv[]) {
 		idx_new = FindFreeIndex();
 		if ((In_Connection == INVALID_SOCKET) or (idx_new == -1)) { // ошибка соединения сокета или нет свободного слота для нового сокета
 			printf("Accept connection failed. Error: %d\n", WSAGetLastError());
-			closesocket(In_Connection);	continue;}					// закрываем сокет и продолжаем слушать входящие
+			closesocket(In_Connection);	continue;
+		}					// закрываем сокет и продолжаем слушать входящие
 
 		char* ip = inet_ntoa(addr.sin_addr);						// определяем IP адрес Клиента на всякий случай.
 		printf("Accepted Connection for #%d, from : %s\n", idx_new, ip);
 
 		Cli[idx_new].CleanClient();
-		Cli[idx_new].con=In_Connection; Cli[idx_new].idx = idx_new; // создаем Class нового игрока
+		Cli[idx_new].con = In_Connection; Cli[idx_new].idx = idx_new; // создаем Class нового игрока
 
 		// создаем новый поток для обслуживания нового Клиента. В поток передаем только индекс слота Клиента
 		// на всякий случай сохраняем Tread id
 		HANDLE cc = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)ClientHandler, (LPVOID)(idx_new), NULL, NULL);
 	}
-return 0;}  //system("pause");
+	return 0;
+}  //system("pause");
 //send only				// 10013 WSAEACCES		// 10055 WSAENOBUFS		// 10065 WSAEHOSTUNREACH
 // recv&send  WSAGetLastError()
 // 10004 WSAEINTR		// 10014 WSAEFAULT		// 10022 WSAEINVAL		// 10035 WSAEWOULDBLOCK	
