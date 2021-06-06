@@ -37,7 +37,7 @@ S={
 "fieldsize":    10,
 "ground_index": 80,
 "res":          [0,0,-1],
-"game_end_result": "win",
+"game_end_result": "loss",
 "s_WaitingOpponentJoin":False,
 }
 
@@ -147,7 +147,7 @@ def screen_server(**kargs):
             S["in_game"]=      False
             S["game_do_trun"]= False
             S["screens"][1].b8["state"] = "disabled"
-            S["screens"][1].b8["text"] = "Ready"
+            S["screens"][1].b8["text"] = "Готово"
             S["screens"][1].reset_self()
             S["screens"][1].getnewfield()
 
@@ -325,22 +325,15 @@ def CleanTrash():
 def anim(n):
     global S, trash, out_flag, out_data, in_flag, in_data
     if S["stop_threads"]:
-        #root.quit
-        root.destroy()
+        root.destroy() # #root.quit
         exit()
 
     if not anim_do: return
-    #n+=1
-    #if not out_flag:
-    #    out_data = [Packet.p_ChatMessage, 0, "#send from python#"+str(n)]
-    #    out_flag = True
 
     if in_flag:
         print('in_data>', in_data)
         in_flag  = False
 
-    #CleanTrash()
-    #trash.append(C.create_text(100,100, text= n , fill="green",font="Times 12 italic bold"))
     root.after(500, anim, n)
 def logoff(*arg, **karg):
     global out_data, out_flag
@@ -513,8 +506,8 @@ class Field():
 
             if not any( [self.check_amount(i) for i in range(1,5)]  ):
 
-                print('Все корабли расставлены! Жмите "Готов"')
-                self.root.change_status(msg='Все корабли расставлены! Жмите "Готов"')
+                print('Все корабли расставлены! Жмите "Готово"')
+                self.root.change_status(msg='Все корабли расставлены! Жмите "Готово"')
                 S["screens"][1].b8["state"]="normal"
                 return # все корабли стоят!!!!!!!!!!!!!!!!!!!!!
 
@@ -660,10 +653,8 @@ class EndWindow(object):
         self.C = Canvas(self.root, width = 854, height = 482); self.C.place(x=1000, y=0) #(x=-2, y=0)
         self.trash = []
         b2=Button(self.C, text="PlayAgain")
-        #b2.bind("<Button-1>", lambda event: screen_server(ev=event, new_screen=1) );  b2.place(x=650,y=450)
-        #b3=Button(self.C, text="Logoff");    b3.bind("<Button-1>", logoff); b3.place(x=790,y=450)
         b2.bind("<Button-1>", lambda event: screen_server(ev=event, new_screen=1) );  b2.place(x=650,y=450)
-        b3=Button(self.C, text="Logoff");    b3.bind("<Button-1>", logoff); b3.place(x=790,y=450)
+        b3=Button(self.C, text="Выйти");    b3.bind("<Button-1>", logoff); b3.place(x=800,y=450)
         l1=Label(self.C, text="Счет:");          l1.place(x=100, y=400)
         self.l1a=Label(self.C, text="50");      self.l1a.place(x=100, y=430)
 
@@ -675,20 +666,13 @@ class EndWindow(object):
         self.channel1.stop()
         self.channel2.stop()
         S["video_run"]=False
-        #self.thread.join()
-
-        print('hiding window=2')
         self.C.place(x=1000, y=0)
 
     def show(self):
-        self.C.place(x=-2, y=0) #(x=-2, y=0)
+        self.C.place(x=-2, y=0)
         self.C.delete(*self.trash)
-        self.l2a["text"]=str(S["res"][0])
+        self.l1a["text"]=str(S["res"][0])
         self.l2a["text"]=str(S["res"][1])
-        #txt=S["game_end_result"] + str(S["res"][0]) + ":" +str(S["res"][1]) + ":" + str(S["res"][2])
-        #self.trash.append(self.C.create_text(300, 110, text=txt, fill="red", font="Times 20 italic bold"))
-
-        #mixer.music.load("perl_1.mp3");
 
         self.channel1 = mixer.Channel(0); self.channel2 = mixer.Channel(1)
 
@@ -748,9 +732,9 @@ class PlayWindow(object):
         self.root = root #
         self.C = Canvas(self.root, width = 854, height = 482); self.C.place(x=1000, y=0) #(x=-2, y=0)
         self.C.delete('all')
-        b3=Button(self.C, text="Logoff");          b3.bind("<Button-1>", logoff);            b3.place(x=790,y=450)
-        b7=Button(self.C, text="New field");       b7.bind("<Button-1>", self.getnewfield);  b7.place(x=720,y=450)
-        self.b8=Button(self.C, text="Ready"); self.b8.bind("<Button-1>", self.UnReady); self.b8.place(x=650,y=450)
+        b3=Button(self.C, text="Выйти");          b3.bind("<Button-1>", logoff);            b3.place(x=800,y=450)
+        b7=Button(self.C, text="Новое поле");       b7.bind("<Button-1>", self.getnewfield);  b7.place(x=720,y=450)
+        self.b8=Button(self.C, text="Готово"); self.b8.bind("<Button-1>", self.UnReady); self.b8.place(x=650,y=450)
         self.b8["state"] = "disabled"
 
         self.buttons={"b8":self.b8}
@@ -879,7 +863,6 @@ class PlayWindow(object):
         self.ofld = Field(self, size=S["fieldsize"]//5-1, ofld=True)
         #self.ofld.build_self()
         self.op_var.set("10x10")
-        #852,480
 
 class StartWindow(object):
     def __del__(self):
@@ -1011,8 +994,6 @@ def main():
     global S, root, images_raw, image_surf_raw, images_P
 
     mixer.init()
-    #snd = mixer.Sound("Error.ogg") #f = mp3play.load('Error.ogg'); snd.play()
-
     root = Tk(); root.geometry('%dx%d+%d+%d' % (852,480,200,80));  root.resizable(0, 0) # #root.overrideredirect(1) # ; root.iconbitmap("icon.ico")
 
     images_cord={'header':(114,0,542,76), 'ship':(0,0,37,37), 'broken_ship':(38,0,75,37),
@@ -1051,43 +1032,6 @@ if __name__ == "__main__":
 
 
 # from tkinter import messagebox
-# root = tk.Tk()
-# def on_closing():
-#     if messagebox.askokcancel("Quit", "Do you want to quit?"):
-#         root.destroy()
+#if messagebox.askokcancel("Quit", "Do you want to quit?"):
+#  root.destroy()
 # root.protocol("WM_DELETE_WINDOW", on_closing)
-
-
-#print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
-#print(f"[NEW CONNECTION] {addr} connected.")
-
-#L=float(e_L.get())
-#e_L['bg']='green'
-#e_L.delete(0,END)  tk.END
-
-'''
-    [[0,0], [0,4], [0,4], [0,4], [0,4], [0,0], [0,4], [0,4], [0,4], [0,0] ],
-    [[0,0], [0,4], [0,2], [0,2], [0,4], [0,8], [0,4], [0,1], [0,4], [0,0] ],
-    [[0,4], [0,4], [0,4], [0,4], [0,4], [0,0], [0,4], [0,1], [0,4], [0,0] ],
-    [[0,1], [0,1], [0,1], [0,4], [0,0], [0,0], [0,4], [0,1], [0,4], [0,0] ],
-    [[0,4], [0,4], [0,4], [0,4], [0,0], [0,0], [0,4], [0,4], [0,4], [0,0] ],
-    [[0,0], [0,0], [0,0], [0,8], [1,0], [0,0], [0,0], [0,0], [0,8], [0,0] ],
-    [[0,0], [0,0], [0,0], [1,0], [1,0], [0,0], [0,0], [0,0], [0,0], [0,0] ],
-    [[0,0], [0,0], [1,4], [1,4], [1,4], [1,4], [0,4], [0,0], [0,0], [0,0] ],
-    [[0,0], [0,0], [1,4], [1,2], [1,2], [1,2], [1,4], [0,4], [0,8], [0,0] ],
-    [[0,0], [0,8], [1,4], [1,4], [1,4], [1,2], [1,4], [1,1], [0,8], [0,0] ],
-
-#class Ship():
-#    def __init__(self, root, x, y, _type, ofld=False): #
-#        pass
-        #int _type = ERR; int _x; int _y; int len;  int idx; cell* cells[4];
-
-#def init_from_S(self): # при этом уже в S всё должно быть. проверки нет.
-#    global S
-#    if not ofld: self.Field=[[ Cell(self, grnd=S["pfld"][y][x], type=cell_types.Free, shipid=-1) for x in range(S["fieldsize"])] for y in range(S["fieldsize"])]
-#    else:        self.Field=[[ Cell(self, grnd=S["ofld"][y][x], type=cell_types.Free, shipid=-1) for x in range(S["fieldsize"])] for y in range(S["fieldsize"])]
-
-#S["ground_img"]=ImageTk.PhotoImage(Image.open("ground.png").convert('RGBA'))
-#S["water_img"]=ImageTk.PhotoImage(Image.open("water.png").convert('RGBA'))
-
-'''
